@@ -110,6 +110,28 @@ conocimientos técnicos puede extraer o reconstruir contenido. Estas medidas
 protegen la instalación legítima y dificultan modificaciones casuales, pero no
 sustituyen licencias, control contractual o gestión empresarial del dispositivo.
 
+### Configuración segura de la firma en GitHub
+
+La llave privada nunca se guarda dentro del repositorio. En
+`Settings > Secrets and variables > Actions` deben existir estos cuatro secretos:
+
+- `SIGNING_KEYSTORE_BASE64`: contenido Base64 completo del archivo `.jks`.
+- `SIGNING_STORE_PASSWORD`: contraseña del almacén `.jks`.
+- `SIGNING_KEY_ALIAS`: alias exacto de la llave privada.
+- `SIGNING_KEY_PASSWORD`: contraseña de la llave privada.
+
+En Windows PowerShell, convierta el archivo sin saltos de línea y copie el
+resultado directamente al portapapeles:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\ruta\agudeza-visual.jks")) | Set-Clipboard
+```
+
+Pegue ese valor en `SIGNING_KEYSTORE_BASE64`. No pegue la ruta, el nombre del
+archivo ni la salida de `keytool`. Conserve el `.jks` original y sus contraseñas
+en un lugar seguro: todas las actualizaciones deben usar exactamente la misma
+firma para instalarse sobre versiones anteriores.
+
 ## Actualizaciones por USB
 
 Cuando cambien cartillas, menús o funciones se genera un APK con un
