@@ -2,4 +2,11 @@
 <resources>
     <string name="app_name">Agudeza Visual</string>
     <string name="back_hint">Atrás para volver; repita para cerrar</string>
+    <string name="device_admin_description">Permite utilizar Agudeza Visual como aplicación dedicada.</string>
+    <string name="kiosk_not_provisioned">Modo kiosco pendiente de activación administrativa</string>
+    <string name="admin_access">Acceso administrativo</string>
+    <string name="admin_pin_hint">Ingrese el PIN para salir del modo kiosco</string>
+    <string name="admin_pin_error">PIN incorrecto</string>
+    <string name="admin_exit">Salir del modo kiosco</string>
+    <string name="cancel">Cancelar</string>
 </resources>

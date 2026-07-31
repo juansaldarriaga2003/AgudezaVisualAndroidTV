@@ -1,8 +1,18 @@
 package com.agudezavisual.tv;
 
 import android.app.Activity;
+import android.app.ActivityManager;
+import android.app.AlertDialog;
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.InputType;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -10,6 +20,7 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.EditText;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
@@ -18,6 +29,17 @@ public class MainActivity extends Activity {
 
     private WebView webView;
     private long lastBackPress = 0;
+    private final Handler adminHandler = new Handler(Looper.getMainLooper());
+    private boolean adminLongPressTriggered = false;
+    private boolean adminDialogVisible = false;
+    private boolean kioskNoticeShown = false;
+    private final Runnable showAdminRunnable = new Runnable() {
+        @Override
+        public void run() {
+            adminLongPressTriggered = true;
+            showAdminExitDialog();
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,7 +65,7 @@ public class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setUserAgentString(
-            settings.getUserAgentString() + " AgudezaVisualOffline/2.0"
+            settings.getUserAgentString() + " AgudezaVisualOffline/2.1"
         );
 
         webView.setWebViewClient(new WebViewClient());
@@ -60,7 +82,32 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (BuildConfig.KIOSK_MODE) {
+            activateKioskMode();
+        }
+    }
+
+    @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (BuildConfig.KIOSK_MODE && isConfirmKey(event.getKeyCode())) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                if (event.getRepeatCount() == 0 && !adminDialogVisible) {
+                    adminLongPressTriggered = false;
+                    adminHandler.postDelayed(showAdminRunnable, 4000);
+                }
+                return true;
+            }
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                adminHandler.removeCallbacks(showAdminRunnable);
+                if (!adminLongPressTriggered && !adminDialogVisible) {
+                    sendWebKey("Enter", 13);
+                }
+                return true;
+            }
+        }
+
         if (event.getAction() != KeyEvent.ACTION_DOWN) {
             return super.dispatchKeyEvent(event);
         }
@@ -103,6 +150,17 @@ public class MainActivity extends Activity {
         }
     }
 
+    private boolean isConfirmKey(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_DPAD_CENTER
+            || keyCode == KeyEvent.KEYCODE_ENTER
+            || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
+            || keyCode == KeyEvent.KEYCODE_BUTTON_A
+            || keyCode == KeyEvent.KEYCODE_BUTTON_SELECT
+            || keyCode == KeyEvent.KEYCODE_BUTTON_START
+            || keyCode == KeyEvent.KEYCODE_MEDIA_PLAY
+            || keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
+    }
+
     private void sendWebKey(String key, int keyCode) {
         String script =
             "window.dispatchEvent(new KeyboardEvent('keydown',{" +
@@ -112,6 +170,11 @@ public class MainActivity extends Activity {
     }
 
     private void handleBack() {
+        if (BuildConfig.KIOSK_MODE) {
+            sendWebKey("Backspace", 8);
+            return;
+        }
+
         long now = System.currentTimeMillis();
         if (now - lastBackPress < 1200) {
             finish();
@@ -122,10 +185,114 @@ public class MainActivity extends Activity {
         Toast.makeText(this, R.string.back_hint, Toast.LENGTH_SHORT).show();
     }
 
+    private void activateKioskMode() {
+        DevicePolicyManager policyManager =
+            (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+        ComponentName admin = new ComponentName(this, KioskDeviceAdminReceiver.class);
+
+        if (policyManager.isDeviceOwnerApp(getPackageName())) {
+            policyManager.setLockTaskPackages(admin, new String[] { getPackageName() });
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                policyManager.setLockTaskFeatures(
+                    admin,
+                    DevicePolicyManager.LOCK_TASK_FEATURE_NONE
+                );
+            }
+        }
+
+        if (policyManager.isLockTaskPermitted(getPackageName())
+                && !isInLockTaskMode()) {
+            startLockTask();
+        } else if (!policyManager.isLockTaskPermitted(getPackageName())
+                && !kioskNoticeShown) {
+            kioskNoticeShown = true;
+            Toast.makeText(
+                this,
+                R.string.kiosk_not_provisioned,
+                Toast.LENGTH_LONG
+            ).show();
+        }
+    }
+
+    private boolean isInLockTaskMode() {
+        ActivityManager activityManager =
+            (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return activityManager.getLockTaskModeState()
+                == ActivityManager.LOCK_TASK_MODE_LOCKED;
+        }
+        return false;
+    }
+
+    private void showAdminExitDialog() {
+        if (adminDialogVisible || isFinishing()) {
+            return;
+        }
+        adminDialogVisible = true;
+
+        EditText pinInput = new EditText(this);
+        pinInput.setHint(R.string.admin_pin_hint);
+        pinInput.setInputType(
+            InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        );
+        pinInput.setSingleLine(true);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+            .setTitle(R.string.admin_access)
+            .setView(pinInput)
+            .setPositiveButton(R.string.admin_exit, null)
+            .setNegativeButton(R.string.cancel, null)
+            .create();
+
+        dialog.setOnDismissListener(ignored -> {
+            adminDialogVisible = false;
+            adminLongPressTriggered = false;
+            enterImmersiveMode();
+            webView.requestFocus();
+        });
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+                if ("2580".contentEquals(pinInput.getText())) {
+                    exitKioskMode();
+                    dialog.dismiss();
+                } else {
+                    pinInput.setError(getString(R.string.admin_pin_error));
+                    pinInput.setText("");
+                }
+            });
+        });
+        dialog.show();
+        pinInput.requestFocus();
+    }
+
+    private void exitKioskMode() {
+        if (isInLockTaskMode()) {
+            try {
+                stopLockTask();
+            } catch (IllegalStateException ignored) {
+                // El sistema ya había liberado el bloqueo.
+            }
+        }
+
+        Intent homeIntent = new Intent(Intent.ACTION_MAIN);
+        homeIntent.addCategory(Intent.CATEGORY_HOME);
+        homeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(homeIntent);
+    }
+
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         webView.saveState(outState);
         super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    protected void onDestroy() {
+        adminHandler.removeCallbacks(showAdminRunnable);
+        if (webView != null) {
+            webView.destroy();
+        }
+        super.onDestroy();
     }
 
     @Override

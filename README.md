@@ -38,6 +38,35 @@ recursos, menús y funciones de Agudeza Visual; no requiere internet.
 
 El funcionamiento ordinario no requiere Wi-Fi, red local ni internet.
 
+## Versión kiosco 2.1
+
+El proyecto genera dos instaladores:
+
+- `AgudezaVisual-2.1.0-Offline.apk`: funcionamiento normal.
+- `AgudezaVisual-2.1.0-Kiosco.apk`: funcionamiento como dispositivo dedicado.
+
+La versión kiosco abre Agudeza Visual después de reiniciar, mantiene la pantalla
+inmersiva y utiliza el modo Lock Task de Android cuando ha sido autorizada como
+propietaria del dispositivo.
+
+Para abrir la salida administrativa mantenga presionado **OK** durante cuatro
+segundos e ingrese el PIN inicial `2580`. El PIN debe cambiarse antes de una
+implementación definitiva.
+
+### Activación inicial del onn. Google TV
+
+La activación como dispositivo dedicado debe hacerse en un equipo restablecido
+de fábrica, antes de agregar cuentas:
+
+```text
+adb install AgudezaVisual-2.1.0-Kiosco.apk
+adb shell dpm set-device-owner com.agudezavisual.tv.kiosk/com.agudezavisual.tv.KioskDeviceAdminReceiver
+adb shell am start -n com.agudezavisual.tv.kiosk/com.agudezavisual.tv.MainActivity
+```
+
+Si `set-device-owner` informa que ya existen cuentas o usuarios configurados,
+restablezca el onn. Google TV y repita la activación antes de iniciar sesión.
+
 ## Actualizaciones por USB
 
 Cuando cambien cartillas, menús o funciones se genera un APK con un

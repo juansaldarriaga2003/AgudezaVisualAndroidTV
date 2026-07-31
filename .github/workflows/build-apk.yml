@@ -22,9 +22,14 @@ jobs:
         run: |
           cat offline-assets.zip.part-* > offline-assets.zip
           unzip -q offline-assets.zip
-      - run: gradle assembleDebug
-      - run: cp app/build/outputs/apk/debug/app-debug.apk AgudezaVisual-2.0.0-Offline.apk
+      - run: gradle assembleNormalDebug assembleKioskDebug
+      - name: Preparar instaladores
+        run: |
+          cp app/build/outputs/apk/normal/debug/app-normal-debug.apk AgudezaVisual-2.1.0-Offline.apk
+          cp app/build/outputs/apk/kiosk/debug/app-kiosk-debug.apk AgudezaVisual-2.1.0-Kiosco.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: AgudezaVisual-2.0.0-Offline
-          path: AgudezaVisual-2.0.0-Offline.apk
+          name: AgudezaVisual-2.1.0-Instaladores
+          path: |
+            AgudezaVisual-2.1.0-Offline.apk
+            AgudezaVisual-2.1.0-Kiosco.apk
