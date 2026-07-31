@@ -40,10 +40,14 @@ El funcionamiento ordinario no requiere Wi-Fi, red local ni internet.
 
 ## Versión kiosco 2.1
 
-El proyecto genera dos instaladores:
+El proyecto genera y firma dos instaladores de producción:
 
-- `AgudezaVisual-2.1.0-Offline.apk`: funcionamiento normal.
-- `AgudezaVisual-2.1.0-Kiosco.apk`: funcionamiento como dispositivo dedicado.
+- `AgudezaVisual-Offline.apk`: funcionamiento normal.
+- `AgudezaVisual-Kiosco.apk`: funcionamiento como dispositivo dedicado.
+
+La versión más reciente se descarga desde la [página pública de
+instalación](https://juansaldarriaga2003.github.io/AgudezaVisualAndroidTV/) o
+desde [GitHub Releases](https://github.com/juansaldarriaga2003/AgudezaVisualAndroidTV/releases/latest).
 
 La versión kiosco abre Agudeza Visual después de reiniciar, mantiene la pantalla
 inmersiva y utiliza el modo Lock Task de Android cuando ha sido autorizada como
@@ -59,7 +63,7 @@ La activación como dispositivo dedicado debe hacerse en un equipo restablecido
 de fábrica, antes de agregar cuentas:
 
 ```text
-adb install AgudezaVisual-2.1.0-Kiosco.apk
+adb install AgudezaVisual-Kiosco.apk
 adb shell dpm set-device-owner com.agudezavisual.tv.kiosk/com.agudezavisual.tv.KioskDeviceAdminReceiver
 adb shell am start -n com.agudezavisual.tv.kiosk/com.agudezavisual.tv.MainActivity
 ```

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#15270a">
+  <title>Descargar Agudeza Visual para Android TV</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0d1609;
+      color: #f7faef;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 12% 12%, rgba(142, 181, 42, .24), transparent 30rem),
+        linear-gradient(150deg, #101d0b 0%, #17250e 55%, #0b1208 100%);
+    }
+    main {
+      width: min(1100px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 56px 0;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 44px;
+      align-items: center;
+      padding: clamp(28px, 5vw, 64px);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 28px;
+      background: rgba(255,255,255,.06);
+      box-shadow: 0 28px 80px rgba(0,0,0,.32);
+      backdrop-filter: blur(12px);
+    }
+    .eyebrow {
+      margin: 0 0 12px;
+      color: #bedf65;
+      font-size: .85rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0;
+      max-width: 760px;
+      font-size: clamp(2.35rem, 6vw, 5.2rem);
+      line-height: .98;
+      letter-spacing: -.055em;
+    }
+    .lead {
+      max-width: 680px;
+      margin: 24px 0 30px;
+      color: #dce6ce;
+      font-size: clamp(1.05rem, 2vw, 1.3rem);
+      line-height: 1.6;
+    }
+    .buttons { display: flex; flex-wrap: wrap; gap: 14px; }
+    .button {
+      display: inline-flex;
+      min-height: 58px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 25px;
+      border: 2px solid transparent;
+      border-radius: 15px;
+      color: #132009;
+      background: #b7de50;
+      font-weight: 850;
+      text-decoration: none;
+      box-shadow: 0 12px 30px rgba(126, 167, 29, .28);
+    }
+    .button:hover, .button:focus-visible { background: #c8ec69; outline: 4px solid rgba(200,236,105,.3); }
+    .button.secondary { color: #f7faef; background: transparent; border-color: rgba(255,255,255,.24); box-shadow: none; }
+    .qr {
+      padding: 18px;
+      border-radius: 22px;
+      background: #fff;
+      color: #14200c;
+      text-align: center;
+    }
+    .qr img { display: block; width: 100%; aspect-ratio: 1; }
+    .qr strong { display: block; margin-top: 10px; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-top: 20px;
+    }
+    .card {
+      padding: 25px;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 20px;
+      background: rgba(255,255,255,.045);
+    }
+    .card h2 { margin: 0 0 9px; font-size: 1.08rem; }
+    .card p { margin: 0; color: #cbd7be; line-height: 1.55; }
+    .notice {
+      margin-top: 20px;
+      padding: 20px 24px;
+      border-left: 5px solid #b7de50;
+      border-radius: 6px 16px 16px 6px;
+      background: rgba(183,222,80,.1);
+      color: #e5efd7;
+      line-height: 1.55;
+    }
+    footer { padding: 30px 4px 0; color: #9baa90; font-size: .92rem; }
+    code { color: #d9f39b; }
+    @media (max-width: 760px) {
+      main { padding: 20px 0 34px; }
+      .hero { grid-template-columns: 1fr; }
+      .qr { width: min(280px, 100%); }
+      .cards { grid-template-columns: 1fr; }
+      .button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Aplicación offline</p>
+        <h1>Agudeza Visual para Android TV</h1>
+        <p class="lead">Instalador para ONN Google TV, Chromecast con Google TV y otros dispositivos Android TV. Todas las cartillas y pruebas están incluidas y funcionan sin conexión después de la instalación.</p>
+        <div class="buttons">
+          <a class="button" href="https://github.com/juansaldarriaga2003/AgudezaVisualAndroidTV/releases/latest/download/AgudezaVisual-Kiosco.apk">Descargar APK kiosco</a>
+          <a class="button secondary" href="https://github.com/juansaldarriaga2003/AgudezaVisualAndroidTV/releases/latest">Ver versión publicada</a>
+        </div>
+      </div>
+      <div class="qr">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=500x500&amp;data=https%3A%2F%2Fgithub.com%2Fjuansaldarriaga2003%2FAgudezaVisualAndroidTV%2Freleases%2Flatest%2Fdownload%2FAgudezaVisual-Kiosco.apk" alt="Código QR para descargar Agudeza Visual">
+        <strong>Escanea para descargar</strong>
+      </div>
+    </section>
+
+    <section class="cards" aria-label="Características">
+      <article class="card"><h2>Funciona sin internet</h2><p>Después de instalarlo, el contenido permanece dentro del televisor.</p></article>
+      <article class="card"><h2>Diseñado para control remoto</h2><p>Navegación con flechas, botón OK y Atrás desde el control del TV.</p></article>
+      <article class="card"><h2>Modo dispositivo dedicado</h2><p>La edición kiosco puede iniciar automáticamente y limitar el acceso a otras aplicaciones.</p></article>
+    </section>
+
+    <div class="notice"><strong>Importante:</strong> activa “Instalar aplicaciones desconocidas” para el navegador o gestor de descargas. La primera activación del modo kiosco requiere el comando administrativo ADB indicado en el repositorio.</div>
+    <footer>Agudeza Visual · Versión estable más reciente · Android 5.0 o superior</footer>
+  </main>
+</body>
+</html>

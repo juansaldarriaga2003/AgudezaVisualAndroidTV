@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,14 +25,39 @@ jobs:
         run: |
           cat offline-assets.zip.part-* > offline-assets.zip
           unzip -q offline-assets.zip
-      - run: gradle assembleNormalDebug assembleKioskDebug
+      - name: Restaurar clave privada de firma
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          test -n "$SIGNING_KEYSTORE_BASE64"
+          test -n "$SIGNING_STORE_PASSWORD"
+          test -n "$SIGNING_KEY_ALIAS"
+          test -n "$SIGNING_KEY_PASSWORD"
+          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/agudeza-visual.jks"
+      - name: Compilar instaladores firmados
+        env:
+          SIGNING_STORE_FILE: ${{ runner.temp }}/agudeza-visual.jks
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: gradle assembleNormalRelease assembleKioskRelease
       - name: Preparar instaladores
         run: |
-          cp app/build/outputs/apk/normal/debug/app-normal-debug.apk AgudezaVisual-2.1.0-Offline.apk
-          cp app/build/outputs/apk/kiosk/debug/app-kiosk-debug.apk AgudezaVisual-2.1.0-Kiosco.apk
+          cp app/build/outputs/apk/normal/release/app-normal-release.apk AgudezaVisual-Offline.apk
+          cp app/build/outputs/apk/kiosk/release/app-kiosk-release.apk AgudezaVisual-Kiosco.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: AgudezaVisual-2.1.0-Instaladores
+          name: AgudezaVisual-Instaladores
           path: |
-            AgudezaVisual-2.1.0-Offline.apk
-            AgudezaVisual-2.1.0-Kiosco.apk
+            AgudezaVisual-Offline.apk
+            AgudezaVisual-Kiosco.apk
+      - name: Publicar o actualizar GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view estable >/dev/null 2>&1 || gh release create estable --title "Agudeza Visual 2.1.0" --notes "Instaladores firmados para Android TV. Funcionamiento offline."
+          gh release upload estable AgudezaVisual-Offline.apk AgudezaVisual-Kiosco.apk --clobber
+          gh release edit estable --latest
