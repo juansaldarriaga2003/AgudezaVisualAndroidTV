@@ -18,6 +18,8 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@v3
+      - name: Instalar SDK de compilación
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
@@ -26,6 +28,8 @@ jobs:
           cat offline-assets.zip.part-* > offline-assets.zip
           unzip -q offline-assets.zip
           cp webapp/index.html webapp/offline.css webapp/offline.js app/src/main/assets/
+      - name: Verificar código sin firma de producción
+        run: gradle assembleNormalDebug assembleKioskDebug
       - name: Restaurar clave privada de firma
         env:
           SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
@@ -33,12 +37,58 @@ jobs:
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
-          test -n "$SIGNING_KEYSTORE_BASE64"
-          test -n "$SIGNING_STORE_PASSWORD"
-          test -n "$SIGNING_KEY_ALIAS"
-          test -n "$SIGNING_KEY_PASSWORD"
-          printf '%s' "$SIGNING_KEYSTORE_BASE64" | tr -d '\r\n ' | base64 --decode > "$RUNNER_TEMP/agudeza-visual.jks"
-          keytool -list -keystore "$RUNNER_TEMP/agudeza-visual.jks" -storepass "$SIGNING_STORE_PASSWORD" -alias "$SIGNING_KEY_ALIAS" >/dev/null
+          require_secret() {
+            if [ -z "$2" ]; then
+              echo "::error::Falta el secreto de GitHub $1. Configúrelo en Settings > Secrets and variables > Actions."
+              exit 1
+            fi
+          }
+
+          require_secret SIGNING_KEYSTORE_BASE64 "$SIGNING_KEYSTORE_BASE64"
+          require_secret SIGNING_STORE_PASSWORD "$SIGNING_STORE_PASSWORD"
+          require_secret SIGNING_KEY_ALIAS "$SIGNING_KEY_ALIAS"
+          require_secret SIGNING_KEY_PASSWORD "$SIGNING_KEY_PASSWORD"
+
+          # Admite Base64 en una sola línea o con saltos de línea. También elimina
+          # comillas accidentales y el prefijo habitual de una URL de datos.
+          normalized_key="$(printf '%s' "$SIGNING_KEYSTORE_BASE64" \
+            | tr -d '\r\n\t ' \
+            | sed -e 's/^data:[^,]*,//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")"
+
+          if ! printf '%s' "$normalized_key" | base64 --decode > "$RUNNER_TEMP/agudeza-visual.jks" 2>/dev/null; then
+            echo "::error::SIGNING_KEYSTORE_BASE64 no es un Base64 válido. Vuelva a convertir el archivo .jks completo y reemplace el secreto."
+            exit 1
+          fi
+
+          if [ ! -s "$RUNNER_TEMP/agudeza-visual.jks" ]; then
+            echo "::error::La llave decodificada está vacía. SIGNING_KEYSTORE_BASE64 no contiene el archivo .jks."
+            exit 1
+          fi
+
+          if ! keytool -list \
+            -keystore "$RUNNER_TEMP/agudeza-visual.jks" \
+            -storepass "$SIGNING_STORE_PASSWORD" \
+            -alias "$SIGNING_KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::No fue posible abrir la llave. Revise SIGNING_STORE_PASSWORD y SIGNING_KEY_ALIAS."
+            exit 1
+          fi
+
+          # Importar temporalmente el alias verifica también la contraseña de la
+          # clave privada antes de iniciar Gradle.
+          if ! keytool -importkeystore -noprompt \
+            -srckeystore "$RUNNER_TEMP/agudeza-visual.jks" \
+            -srcstorepass "$SIGNING_STORE_PASSWORD" \
+            -srcalias "$SIGNING_KEY_ALIAS" \
+            -srckeypass "$SIGNING_KEY_PASSWORD" \
+            -destkeystore "$RUNNER_TEMP/signing-validation.p12" \
+            -deststoretype PKCS12 \
+            -deststorepass validation-only-2026 \
+            -destkeypass validation-only-2026 >/dev/null 2>&1; then
+            echo "::error::La llave existe, pero SIGNING_KEY_PASSWORD no corresponde al alias configurado."
+            exit 1
+          fi
+
+          rm -f "$RUNNER_TEMP/signing-validation.p12"
       - name: Compilar instaladores firmados
         env:
           SIGNING_STORE_FILE: ${{ runner.temp }}/agudeza-visual.jks
