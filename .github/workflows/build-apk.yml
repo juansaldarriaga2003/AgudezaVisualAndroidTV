@@ -27,6 +27,9 @@ jobs:
         run: |
           cat offline-assets.zip.part-* > offline-assets.zip
           unzip -q offline-assets.zip
+          printf 'window.OPTOTYPES_MANIFEST=' > app/src/main/assets/optotypes/manifest-data.js
+          cat app/src/main/assets/optotypes/manifest.json >> app/src/main/assets/optotypes/manifest-data.js
+          printf ';\n' >> app/src/main/assets/optotypes/manifest-data.js
           cp webapp/index.html webapp/offline.css webapp/offline.js app/src/main/assets/
       - name: Verificar código sin firma de producción
         run: gradle assembleNormalDebug assembleKioskDebug
@@ -110,7 +113,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view estable >/dev/null 2>&1 || gh release create estable --title "Agudeza Visual 2.2.0" --notes "Instaladores firmados para Android TV. Calibración física, modo kiosco y funcionamiento offline."
+          gh release view estable >/dev/null 2>&1 || gh release create estable --title "Agudeza Visual 2.2.1" --notes "Instaladores firmados para Android TV. Carga local compatible con WebView antiguos, calibración física y modo kiosco."
           gh release upload estable AgudezaVisual-Offline.apk AgudezaVisual-Kiosco.apk --clobber
-          gh release edit estable --title "Agudeza Visual 2.2.0" --notes "Instaladores firmados para Android TV. Calibración física, modo kiosco y funcionamiento offline."
+          gh release edit estable --title "Agudeza Visual 2.2.1" --notes "Instaladores firmados para Android TV. Carga local compatible con WebView antiguos, calibración física y modo kiosco."
           gh release edit estable --latest
