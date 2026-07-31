@@ -10,8 +10,8 @@ android {
         applicationId = "com.agudezavisual.tv"
         minSdk = 21
         targetSdk = 35
-        versionCode = 5
-        versionName = "2.1.0"
+        versionCode = 6
+        versionName = "2.2.0"
     }
 
     flavorDimensions += "deployment"
@@ -47,7 +47,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("production")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -55,4 +56,8 @@ android {
             )
         }
     }
+}
+
+dependencies {
+    implementation("androidx.webkit:webkit:1.12.1")
 }

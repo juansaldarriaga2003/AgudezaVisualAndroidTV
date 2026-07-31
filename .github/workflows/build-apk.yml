@@ -25,6 +25,7 @@ jobs:
         run: |
           cat offline-assets.zip.part-* > offline-assets.zip
           unzip -q offline-assets.zip
+          cp webapp/index.html webapp/offline.css webapp/offline.js app/src/main/assets/
       - name: Restaurar clave privada de firma
         env:
           SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
@@ -36,7 +37,8 @@ jobs:
           test -n "$SIGNING_STORE_PASSWORD"
           test -n "$SIGNING_KEY_ALIAS"
           test -n "$SIGNING_KEY_PASSWORD"
-          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/agudeza-visual.jks"
+          printf '%s' "$SIGNING_KEYSTORE_BASE64" | tr -d '\r\n ' | base64 --decode > "$RUNNER_TEMP/agudeza-visual.jks"
+          keytool -list -keystore "$RUNNER_TEMP/agudeza-visual.jks" -storepass "$SIGNING_STORE_PASSWORD" -alias "$SIGNING_KEY_ALIAS" >/dev/null
       - name: Compilar instaladores firmados
         env:
           SIGNING_STORE_FILE: ${{ runner.temp }}/agudeza-visual.jks
@@ -58,6 +60,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view estable >/dev/null 2>&1 || gh release create estable --title "Agudeza Visual 2.1.0" --notes "Instaladores firmados para Android TV. Funcionamiento offline."
+          gh release view estable >/dev/null 2>&1 || gh release create estable --title "Agudeza Visual 2.2.0" --notes "Instaladores firmados para Android TV. Calibración física, modo kiosco y funcionamiento offline."
           gh release upload estable AgudezaVisual-Offline.apk AgudezaVisual-Kiosco.apk --clobber
+          gh release edit estable --title "Agudeza Visual 2.2.0" --notes "Instaladores firmados para Android TV. Calibración física, modo kiosco y funcionamiento offline."
           gh release edit estable --latest

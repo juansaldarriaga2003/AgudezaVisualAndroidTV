@@ -7,11 +7,13 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.UserManager;
 import android.text.InputType;
 import android.view.KeyEvent;
 import android.view.View;
@@ -23,9 +25,12 @@ import android.webkit.WebViewClient;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import androidx.webkit.WebViewAssetLoader;
+import androidx.webkit.WebViewClientCompat;
+
 public class MainActivity extends Activity {
     private static final String APP_URL =
-        "file:///android_asset/index.html";
+        "https://appassets.androidplatform.net/assets/index.html";
 
     private WebView webView;
     private long lastBackPress = 0;
@@ -57,9 +62,10 @@ public class MainActivity extends Activity {
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
-        settings.setAllowFileAccessFromFileURLs(true);
+        settings.setAllowFileAccess(false);
+        settings.setAllowContentAccess(false);
+        settings.setAllowFileAccessFromFileURLs(false);
+        settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setSupportZoom(false);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
@@ -68,7 +74,24 @@ public class MainActivity extends Activity {
             settings.getUserAgentString() + " AgudezaVisualOffline/2.1"
         );
 
-        webView.setWebViewClient(new WebViewClient());
+        WebView.setWebContentsDebuggingEnabled(false);
+        WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+            .build();
+        webView.setWebViewClient(new WebViewClientCompat() {
+            @Override
+            public android.webkit.WebResourceResponse shouldInterceptRequest(
+                    WebView view, android.webkit.WebResourceRequest request) {
+                return assetLoader.shouldInterceptRequest(request.getUrl());
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public android.webkit.WebResourceResponse shouldInterceptRequest(
+                    WebView view, String url) {
+                return assetLoader.shouldInterceptRequest(android.net.Uri.parse(url));
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient());
         setContentView(webView);
 
@@ -192,6 +215,18 @@ public class MainActivity extends Activity {
 
         if (policyManager.isDeviceOwnerApp(getPackageName())) {
             policyManager.setLockTaskPackages(admin, new String[] { getPackageName() });
+            policyManager.setUninstallBlocked(admin, getPackageName(), true);
+            IntentFilter homeFilter = new IntentFilter(Intent.ACTION_MAIN);
+            homeFilter.addCategory(Intent.CATEGORY_HOME);
+            homeFilter.addCategory(Intent.CATEGORY_DEFAULT);
+            policyManager.addPersistentPreferredActivity(
+                admin,
+                homeFilter,
+                new ComponentName(this, MainActivity.class)
+            );
+            policyManager.addUserRestriction(admin, UserManager.DISALLOW_SAFE_BOOT);
+            policyManager.addUserRestriction(admin, UserManager.DISALLOW_ADD_USER);
+            policyManager.addUserRestriction(admin, UserManager.DISALLOW_CREATE_WINDOWS);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 policyManager.setLockTaskFeatures(
                     admin,
@@ -266,6 +301,16 @@ public class MainActivity extends Activity {
     }
 
     private void exitKioskMode() {
+        DevicePolicyManager policyManager =
+            (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+        ComponentName admin = new ComponentName(this, KioskDeviceAdminReceiver.class);
+        if (policyManager.isDeviceOwnerApp(getPackageName())) {
+            policyManager.setUninstallBlocked(admin, getPackageName(), false);
+            policyManager.clearPackagePersistentPreferredActivities(admin, getPackageName());
+            policyManager.clearUserRestriction(admin, UserManager.DISALLOW_SAFE_BOOT);
+            policyManager.clearUserRestriction(admin, UserManager.DISALLOW_ADD_USER);
+            policyManager.clearUserRestriction(admin, UserManager.DISALLOW_CREATE_WINDOWS);
+        }
         if (isInLockTaskMode()) {
             try {
                 stopLockTask();

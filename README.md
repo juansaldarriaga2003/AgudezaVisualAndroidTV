@@ -38,7 +38,7 @@ recursos, menús y funciones de Agudeza Visual; no requiere internet.
 
 El funcionamiento ordinario no requiere Wi-Fi, red local ni internet.
 
-## Versión kiosco 2.1
+## Versión 2.2 y calibración clínica
 
 El proyecto genera y firma dos instaladores de producción:
 
@@ -53,11 +53,24 @@ La versión kiosco abre Agudeza Visual después de reiniciar, mantiene la pantal
 inmersiva y utiliza el modo Lock Task de Android cuando ha sido autorizada como
 propietaria del dispositivo.
 
+La pantalla se calibra con una regla física: ajuste la barra verde hasta que
+mida exactamente 100 mm y seleccione la distancia real entre los ojos del
+paciente y la pantalla. El sistema guarda la relación píxeles/milímetro y
+calcula la altura del optotipo para que abarque cinco minutos de arco. Los
+optotipos dinámicos usan anillos C de Landolt, cinco por línea y progresión de
+0,1 logMAR.
+
+Antes de calibrar, configure el televisor en `Ajustar a pantalla`, `Just Scan`,
+`1:1` o `Sin overscan`, según el nombre usado por el fabricante. Desactive zoom,
+contraste dinámico, ahorro de energía y cualquier cambio automático del formato
+de imagen. Repita la calibración si cambia el TV, la resolución HDMI o el modo
+de imagen.
+
 Para abrir la salida administrativa mantenga presionado **OK** durante cuatro
 segundos e ingrese el PIN inicial `2580`. El PIN debe cambiarse antes de una
 implementación definitiva.
 
-### Activación inicial del onn. Google TV
+### Activación inicial del H96Max u otro Android TV
 
 La activación como dispositivo dedicado debe hacerse en un equipo restablecido
 de fábrica, antes de agregar cuentas:
@@ -69,7 +82,33 @@ adb shell am start -n com.agudezavisual.tv.kiosk/com.agudezavisual.tv.MainActivi
 ```
 
 Si `set-device-owner` informa que ya existen cuentas o usuarios configurados,
-restablezca el onn. Google TV y repita la activación antes de iniciar sesión.
+restablezca el dispositivo y repita la activación antes de iniciar sesión. Esta
+autorización permite ocultar Inicio/Recientes, impedir la desinstalación normal y
+usar Agudeza Visual como pantalla de inicio. Mantener OK durante cuatro segundos
+y usar el PIN administrativo libera el modo kiosco.
+
+La instalación mediante USB sí es suficiente para ejecutar la aplicación, pero
+no concede por sí sola el control total del sistema. El comando ADB anterior se
+ejecuta una sola vez desde un computador conectado a la misma red o por USB.
+
+## Versión web
+
+La misma interfaz de `webapp/` se incorpora al APK y se publica en la ruta
+`/app/` del sitio. Por tanto, calibración, distancias, presentación clínica y
+correcciones de imágenes se mantienen en una única fuente.
+
+## Protección de la aplicación
+
+Los instaladores de producción están firmados con una clave privada estable y
+la compilación Release activa R8 y reducción de recursos. Android rechaza una
+actualización alterada que no tenga la misma firma. Además, la edición kiosco
+desactiva la depuración del WebView, bloquea acceso general a archivos y puede
+impedir la desinstalación cuando es propietaria del dispositivo.
+
+Ningún APK ni sitio web puede hacerse incopiable: alguien con control físico y
+conocimientos técnicos puede extraer o reconstruir contenido. Estas medidas
+protegen la instalación legítima y dificultan modificaciones casuales, pero no
+sustituyen licencias, control contractual o gestión empresarial del dispositivo.
 
 ## Actualizaciones por USB
 
