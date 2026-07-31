@@ -27,6 +27,9 @@ jobs:
           mkdir -p public/app
           cat offline-assets.zip.part-* > offline-assets.zip
           unzip -q offline-assets.zip
+          printf 'window.OPTOTYPES_MANIFEST=' > app/src/main/assets/optotypes/manifest-data.js
+          cat app/src/main/assets/optotypes/manifest.json >> app/src/main/assets/optotypes/manifest-data.js
+          printf ';\n' >> app/src/main/assets/optotypes/manifest-data.js
           cp -a docs/. public/
           cp -a app/src/main/assets/. public/app/
           cp webapp/index.html webapp/offline.css webapp/offline.js public/app/
