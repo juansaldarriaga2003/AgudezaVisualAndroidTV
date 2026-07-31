@@ -40,17 +40,23 @@
   let inverted = false;
   let showHud = true;
   let hudTimer;
-  let referencePx = Math.min(500, Math.round(window.innerWidth * .35));
   let calibration = loadCalibration();
   let pxPerMm = calibration ? calibration.pxPerMm : 3.78;
+  let screenInches = calibration && calibration.screenInches ? calibration.screenInches : 43;
+  let calibrationStage = 0;
+  let calibrationFocus = 0;
+  let referencePx = calibration
+    ? Math.round(calibration.pxPerMm * 100)
+    : Math.round(estimatedPxPerMm(screenInches) * 100);
   let isCalibrated = Boolean(calibration);
+  if (calibration && calibration.distanceM) distance = calibration.distanceM;
 
   function loadCalibration() {
     const stored = localStorage.getItem("avtv-calibration-v2");
     if (!stored) return null;
     try {
       const parsed = JSON.parse(stored);
-      if (parsed.version !== 2 || !(parsed.pxPerMm > 0)) return null;
+      if (![2, 3].includes(parsed.version) || !(parsed.pxPerMm > 0)) return null;
       return parsed;
     } catch (_) {
       return null;
@@ -107,13 +113,27 @@
     return src.replace(/^\/+/, "");
   }
 
-  function revealHud() {
+  function estimatedPxPerMm(inches) {
+    const diagonalPx = Math.hypot(window.innerWidth, window.innerHeight);
+    return diagonalPx / (Math.max(15, inches) * 25.4);
+  }
+
+  function physicalScreenSize(inches) {
+    const ratio = window.innerWidth / Math.max(1, window.innerHeight);
+    const heightInches = inches / Math.sqrt((ratio * ratio) + 1);
+    return {
+      widthCm: heightInches * ratio * 2.54,
+      heightCm: heightInches * 2.54,
+    };
+  }
+
+  function showEntryHud() {
     showHud = true;
     clearTimeout(hudTimer);
     hudTimer = setTimeout(() => {
       showHud = false;
       if (view === "asset" || view === "exam") render();
-    }, 1700);
+    }, 2400);
   }
 
   function optotypeHeightMm(distanceM, decimal) {
@@ -172,8 +192,14 @@
   function openHome(index) {
     selectedHome = index;
     if (index === 0) view = "library";
-    else if (index === 1 || !isCalibrated) view = "calibration";
-    else view = "exam";
+    else if (index === 1 || !isCalibrated) {
+      calibrationStage = 0;
+      calibrationFocus = 0;
+      view = "calibration";
+    } else {
+      view = "exam";
+      showEntryHud();
+    }
     render();
   }
 
@@ -258,22 +284,62 @@
   function openSelectedGroup() {
     imageIndex = 0;
     view = "asset";
-    revealHud();
+    showEntryHud();
     render();
   }
 
   function renderCalibration() {
+    const physical = physicalScreenSize(screenInches);
+    if (calibrationStage === 0) {
+      app.innerHTML = `
+        <main class="display-setup-shell">
+          ${button("← Volver", 'class="floating-back" data-action="back"')}
+          <section class="display-setup-copy">
+            <p class="section-kicker">Paso 1 de 2 · Perfil de pantalla</p>
+            <h1>Indique el tamaño real del televisor.</h1>
+            <p>Ingrese la diagonal en pulgadas. La aplicación detecta la resolución visible y calcula el ancho y alto físicos para adaptar la interfaz y aproximar la escala inicial.</p>
+          </section>
+          <section class="display-settings-card">
+            <div class="calibration-option ${calibrationFocus === 0 ? "active" : ""}">
+              <div><span>Diagonal de la pantalla</span><strong>${screenInches.toFixed(1)} pulgadas</strong></div>
+              <div class="stepper">${button("−", 'data-inch-adjust="-1"')}<input id="screen-inches" type="number" min="15" max="120" step="0.1" value="${screenInches.toFixed(1)}">${button("+", 'data-inch-adjust="1"')}</div>
+            </div>
+            <div class="calibration-option ${calibrationFocus === 1 ? "active" : ""}">
+              <div><span>Distancia de examen</span><strong>${distance} metros</strong></div>
+              <div class="stepper">${button("−", 'data-distance-adjust="-1"')}<output>${distance} m</output>${button("+", 'data-distance-adjust="1"')}</div>
+            </div>
+            <div class="screen-summary">
+              <span>Resolución visible</span><strong>${window.innerWidth} × ${window.innerHeight} px</strong>
+              <span>Dimensiones estimadas</span><strong>${physical.widthCm.toFixed(1)} × ${physical.heightCm.toFixed(1)} cm</strong>
+            </div>
+            ${button("Continuar a verificación de 100 mm", `class="continue-calibration ${calibrationFocus === 2 ? "active" : ""}" data-action="continue"`)}
+          </section>
+          <footer class="setup-hint"><kbd>↑</kbd><kbd>↓</kbd> Seleccionar <kbd>←</kbd><kbd>→</kbd> Ajustar <kbd>OK</kbd> Continuar</footer>
+        </main>`;
+      app.querySelector('[data-action="back"]').onclick = () => { view = "home"; render(); };
+      app.querySelectorAll("[data-inch-adjust]").forEach((element) => {
+        element.onclick = () => adjustScreenInches(Number(element.dataset.inchAdjust));
+      });
+      app.querySelectorAll("[data-distance-adjust]").forEach((element) => {
+        element.onclick = () => adjustDistance(Number(element.dataset.distanceAdjust));
+      });
+      app.querySelector("#screen-inches").onchange = (event) => {
+        screenInches = Math.max(15, Math.min(120, Number(event.target.value) || 43));
+        referencePx = Math.round(estimatedPxPerMm(screenInches) * 100);
+        render();
+      };
+      app.querySelector('[data-action="continue"]').onclick = continueCalibration;
+      return;
+    }
+
     app.innerHTML = `
       <main class="calibration-shell">
-        ${button("← Volver", 'class="floating-back" data-action="back"')}
+        ${button("← Pantalla", 'class="floating-back" data-action="back"')}
         <div class="calibration-copy">
-          <p class="section-kicker">Calibración de pantalla</p>
+          <p class="section-kicker">Paso 2 de 2 · Verificación física</p>
           <h1>Ajuste la barra hasta que mida exactamente 100 mm.</h1>
-          <p>En el TV seleccione “Ajustar a pantalla”, “1:1” o “Sin overscan”. Mida solamente entre los extremos verdes con una regla física. Use ← → para 1 px y ↑ ↓ para 10 px.</p>
-          <div class="distance-control">
-            <label for="distance">Distancia de examen</label>
-            <select id="distance">${[3,4,5,6].map((value) => `<option value="${value}" ${distance === value ? "selected" : ""}>${value} metros</option>`).join("")}</select>
-          </div>
+          <p>En el TV seleccione “Ajustar a pantalla”, “1:1” o “Sin overscan”. Mida entre los extremos verdes con una regla física. Las pulgadas proporcionan una aproximación; esta barra confirma la escala clínica real.</p>
+          <div class="calibration-profile"><strong>${screenInches.toFixed(1)}″</strong><span>${physical.widthCm.toFixed(1)} × ${physical.heightCm.toFixed(1)} cm · ${distance} m</span></div>
         </div>
         <div class="ruler-stage">
           <div class="ruler-label">100 mm</div>
@@ -286,18 +352,44 @@
           ${button("+", 'data-adjust="1"')}
         </div>
       </main>`;
-    app.querySelector('[data-action="back"]').onclick = () => { view = "home"; render(); };
-    app.querySelector("#distance").onchange = (event) => { distance = Number(event.target.value); };
+    app.querySelector('[data-action="back"]').onclick = () => { calibrationStage = 0; calibrationFocus = 0; render(); };
     app.querySelectorAll("[data-adjust]").forEach((element) => {
-      element.onclick = () => { referencePx = Math.max(100, referencePx + Number(element.dataset.adjust)); render(); };
+      element.onclick = () => { referencePx = Math.max(40, referencePx + Number(element.dataset.adjust)); render(); };
     });
     app.querySelector('[data-action="save"]').onclick = saveCalibration;
+  }
+
+  function adjustScreenInches(step) {
+    screenInches = Math.max(15, Math.min(120, Math.round((screenInches + step) * 10) / 10));
+    referencePx = Math.round(estimatedPxPerMm(screenInches) * 100);
+    render();
+  }
+
+  function adjustDistance(step) {
+    distance = Math.max(3, Math.min(6, distance + step));
+    render();
+  }
+
+  function continueCalibration() {
+    referencePx = Math.max(40, Math.round(estimatedPxPerMm(screenInches) * 100));
+    calibrationStage = 1;
+    render();
   }
 
   function saveCalibration() {
     pxPerMm = referencePx / 100;
     isCalibrated = true;
-    calibration = { version: 2, pxPerMm, distanceM: distance, viewport: `${window.innerWidth}x${window.innerHeight}`, savedAt: new Date().toISOString() };
+    const physical = physicalScreenSize(screenInches);
+    calibration = {
+      version: 3,
+      pxPerMm,
+      screenInches,
+      screenWidthCm: physical.widthCm,
+      screenHeightCm: physical.heightCm,
+      distanceM: distance,
+      viewport: `${window.innerWidth}x${window.innerHeight}`,
+      savedAt: new Date().toISOString(),
+    };
     localStorage.setItem("avtv-calibration-v2", JSON.stringify(calibration));
     view = "library";
     render();
@@ -345,7 +437,6 @@
     app.querySelectorAll("[data-image]").forEach((element) => {
       element.onclick = () => {
         imageIndex = (imageIndex + Number(element.dataset.image) + images.length) % images.length;
-        revealHud();
         render();
       };
     });
@@ -406,7 +497,6 @@
       event.preventDefault();
       event.stopPropagation();
     }
-    revealHud();
     if (view === "home") {
       if (key === "ArrowLeft" || key === "ArrowUp") selectedHome = Math.max(0, selectedHome - 1);
       else if (key === "ArrowRight" || key === "ArrowDown") selectedHome = Math.min(2, selectedHome + 1);
@@ -435,16 +525,25 @@
       else if (key === "ArrowRight") imageIndex = (imageIndex + 1) % images.length;
       else if (key === "ArrowUp") imageIndex = Math.max(0, imageIndex - 5);
       else if (key === "ArrowDown") imageIndex = Math.min(images.length - 1, imageIndex + 5);
-      else if (key === "Enter") showHud = !showHud;
       render();
       return;
     }
     if (view === "calibration") {
-      if (key === "ArrowLeft") referencePx = Math.max(100, referencePx - 1);
-      else if (key === "ArrowRight") referencePx += 1;
-      else if (key === "ArrowDown") referencePx = Math.max(100, referencePx - 10);
-      else if (key === "ArrowUp") referencePx += 10;
-      else if (key === "Enter") return saveCalibration();
+      if (calibrationStage === 0) {
+        if (key === "ArrowUp") calibrationFocus = Math.max(0, calibrationFocus - 1);
+        else if (key === "ArrowDown") calibrationFocus = Math.min(2, calibrationFocus + 1);
+        else if (key === "ArrowLeft" && calibrationFocus === 0) return adjustScreenInches(-1);
+        else if (key === "ArrowRight" && calibrationFocus === 0) return adjustScreenInches(1);
+        else if (key === "ArrowLeft" && calibrationFocus === 1) return adjustDistance(-1);
+        else if (key === "ArrowRight" && calibrationFocus === 1) return adjustDistance(1);
+        else if (key === "Enter" && calibrationFocus === 2) return continueCalibration();
+      } else {
+        if (key === "ArrowLeft") referencePx = Math.max(40, referencePx - 1);
+        else if (key === "ArrowRight") referencePx += 1;
+        else if (key === "ArrowDown") referencePx = Math.max(40, referencePx - 10);
+        else if (key === "ArrowUp") referencePx += 10;
+        else if (key === "Enter") return saveCalibration();
+      }
       render();
       return;
     }
@@ -460,8 +559,6 @@
   window.addEventListener("resize", () => {
     if (view === "asset" || view === "exam") render();
   });
-  window.addEventListener("pointerdown", revealHud);
-  window.addEventListener("mousemove", revealHud);
 
   function startWithManifest(data) {
     if (!Array.isArray(data) || data.length === 0) {
