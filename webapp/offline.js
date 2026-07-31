@@ -463,17 +463,26 @@
   window.addEventListener("pointerdown", revealHud);
   window.addEventListener("mousemove", revealHud);
 
-  fetch("optotypes/manifest.json")
-    .then((response) => {
-      if (!response.ok) throw new Error("No fue posible abrir el manifiesto local.");
-      return response.json();
-    })
-    .then((data) => {
-      groups = data;
-      view = "home";
-      render();
-    })
-    .catch((error) => {
-      app.innerHTML = `<main class="empty-state"><h1>No fue posible cargar las cartillas.</h1><p>${esc(error.message)}</p></main>`;
-    });
+  function startWithManifest(data) {
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("El manifiesto local no contiene cartillas.");
+    }
+    groups = data;
+    view = "home";
+    render();
+  }
+
+  if (Array.isArray(window.OPTOTYPES_MANIFEST)) {
+    startWithManifest(window.OPTOTYPES_MANIFEST);
+  } else {
+    fetch("optotypes/manifest.json")
+      .then((response) => {
+        if (!response.ok) throw new Error("No fue posible abrir el manifiesto local.");
+        return response.json();
+      })
+      .then(startWithManifest)
+      .catch((error) => {
+        app.innerHTML = `<main class="empty-state"><h1>No fue posible cargar las cartillas.</h1><p>${esc(error.message)}</p></main>`;
+      });
+  }
 })();
