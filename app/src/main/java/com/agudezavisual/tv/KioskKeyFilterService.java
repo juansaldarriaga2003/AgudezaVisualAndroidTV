@@ -6,6 +6,8 @@ import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityEvent;
 
 public class KioskKeyFilterService extends AccessibilityService {
+    private static final String SETTINGS_PACKAGE = "com.android.tv.settings";
+
     @Override
     protected void onServiceConnected() {
         AccessibilityServiceInfo info = getServiceInfo();
@@ -27,7 +29,18 @@ public class KioskKeyFilterService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        // El servicio solo filtra teclas; no inspecciona contenido de pantalla.
+        if (!BuildConfig.KIOSK_MODE
+                || event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+                || event.getPackageName() == null
+                || !SETTINGS_PACKAGE.contentEquals(event.getPackageName())) {
+            return;
+        }
+
+        long maintenanceUntil = getSharedPreferences("kiosk_admin", MODE_PRIVATE)
+            .getLong("maintenance_until", 0L);
+        if (System.currentTimeMillis() > maintenanceUntil) {
+            performGlobalAction(GLOBAL_ACTION_HOME);
+        }
     }
 
     @Override
