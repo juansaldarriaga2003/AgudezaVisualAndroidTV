@@ -8,6 +8,8 @@ import android.view.accessibility.AccessibilityEvent;
 
 public class KioskKeyFilterService extends AccessibilityService {
     private static final String SETTINGS_PACKAGE = "com.android.tv.settings";
+    private static final String APP_PACKAGE = "com.agudezavisual.tv.kiosk";
+    private boolean maintenanceSessionActive = false;
 
     @Override
     protected void onServiceConnected() {
@@ -32,28 +34,44 @@ public class KioskKeyFilterService extends AccessibilityService {
     public void onAccessibilityEvent(AccessibilityEvent event) {
         if (!BuildConfig.KIOSK_MODE
                 || event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-                || event.getPackageName() == null
-                || !SETTINGS_PACKAGE.contentEquals(event.getPackageName())) {
+                || event.getPackageName() == null) {
             return;
         }
 
-        long maintenanceUntil = getSharedPreferences("kiosk_admin", MODE_PRIVATE)
-            .getLong("maintenance_until", 0L);
-        if (System.currentTimeMillis() > maintenanceUntil) {
-            performGlobalAction(GLOBAL_ACTION_HOME);
-            Intent adminIntent = new Intent(this, MainActivity.class);
-            adminIntent.putExtra("open_admin", true);
-            adminIntent.addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK
-                    | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    | Intent.FLAG_ACTIVITY_SINGLE_TOP
-            );
-            startActivity(adminIntent);
+        String packageName = event.getPackageName().toString();
+        if (APP_PACKAGE.equals(packageName)) {
+            maintenanceSessionActive = false;
+            return;
         }
+        if (!SETTINGS_PACKAGE.equals(packageName) || maintenanceSessionActive) {
+            return;
+        }
+
+        long grantUntil = getSharedPreferences("kiosk_admin", MODE_PRIVATE)
+            .getLong("maintenance_grant_until", 0L);
+        getSharedPreferences("kiosk_admin", MODE_PRIVATE)
+            .edit()
+            .remove("maintenance_grant_until")
+            .apply();
+
+        if (System.currentTimeMillis() <= grantUntil) {
+            maintenanceSessionActive = true;
+            return;
+        }
+
+        performGlobalAction(GLOBAL_ACTION_HOME);
+        Intent adminIntent = new Intent(this, MainActivity.class);
+        adminIntent.putExtra("open_admin", true);
+        adminIntent.addFlags(
+            Intent.FLAG_ACTIVITY_NEW_TASK
+                | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                | Intent.FLAG_ACTIVITY_SINGLE_TOP
+        );
+        startActivity(adminIntent);
     }
 
     @Override
     public void onInterrupt() {
-        // No mantiene operaciones que deban interrumpirse.
+        maintenanceSessionActive = false;
     }
 }
