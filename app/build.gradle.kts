@@ -10,8 +10,8 @@ android {
         applicationId = "com.agudezavisual.tv"
         minSdk = 21
         targetSdk = 35
-        versionCode = 11
-        versionName = "2.3.3"
+        versionCode = 12
+        versionName = "2.3.4"
     }
 
     flavorDimensions += "deployment"
