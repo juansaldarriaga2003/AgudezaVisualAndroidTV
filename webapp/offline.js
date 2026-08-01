@@ -13,6 +13,8 @@
     { label: "20/12.5", logmar: -0.2 },
   ].map((item) => ({ ...item, decimal: Math.pow(10, -item.logmar) }));
   const DIRECTIONS = [0, 90, 180, 270];
+  const SLOAN = ["C", "D", "H", "K", "N", "O", "R", "S", "V", "Z"];
+  const NUMBERS = ["2", "3", "4", "5", "6", "7", "8", "9"];
   const DESCRIPTIONS = {
     "Afinacion": "Optotipos aislados",
     "Letras Alternas": "Secuencias alternativas de letras",
@@ -36,6 +38,10 @@
   let distance = 3;
   let level = 10;
   let mode = "line";
+  let optotypeType = "letters";
+  let eye = "OD";
+  let correction = "SC";
+  let setupFocus = 0;
   let randomSeed = 0;
   let inverted = false;
   let showHud = true;
@@ -96,8 +102,7 @@
 
   function visibleImages(group) {
     if (!group) return [];
-    if (group.distance === 0) return group.images;
-    return group.images.filter((_, index) => assetStatus(group, index + 1) !== "exclude");
+    return group.images;
   }
 
   function distanceGroups() {
@@ -154,15 +159,15 @@
 
   function renderHome() {
     const options = [
-      ["01", "Abrir cartillas", "Optotipos organizados por distancia"],
-      ["02", "Calibrar pantalla", "Ajustar el tamaño físico con una regla"],
-      ["03", "Optotipos dinámicos", "Generar letras con pantalla calibrada"],
+      ["01", "Evaluación guiada", "Optotipos escalados y registro objetivo"],
+      ["02", "Cartillas y pruebas", "Todo el material visual disponible"],
+      ["03", "Calibrar pantalla", "Ajustar pantalla y distancia de examen"],
     ];
     app.innerHTML = `
       <main class="home-shell">
         <header class="brand-row">
           <div class="brand-mark">AV</div>
-          <div><p class="eyebrow">Sistema de evaluación visual</p><h1>Agudeza Visual</h1></div>
+          <div><p class="eyebrow">Apoyo para la evaluación profesional</p><h1>Agudeza Visual</h1></div>
           <div class="status-pill"><span></span> Aplicación offline</div>
         </header>
         <section class="hero-copy">
@@ -191,14 +196,13 @@
 
   function openHome(index) {
     selectedHome = index;
-    if (index === 0) view = "library";
-    else if (index === 1 || !isCalibrated) {
+    if (index === 1) view = "library";
+    else if (index === 2 || !isCalibrated) {
       calibrationStage = 0;
       calibrationFocus = 0;
       view = "calibration";
     } else {
-      view = "exam";
-      showEntryHud();
+      view = "examSetup";
     }
     render();
   }
@@ -448,16 +452,23 @@
       render();
       return;
     }
-    const sequence = Array.from({ length: 5 }, (_, index) => DIRECTIONS[(index * 3 + randomSeed) % DIRECTIONS.length]);
+    const source = optotypeType === "numbers" ? NUMBERS : SLOAN;
+    const sequence = Array.from({ length: 5 }, (_, index) => source[(index * 3 + randomSeed) % source.length]);
+    const stimulus = (symbol, index, size) => {
+      const direction = DIRECTIONS[(index + randomSeed) % DIRECTIONS.length];
+      if (optotypeType === "landolt") return landolt(direction, size);
+      const value = optotypeType === "tumblingE" ? "E" : symbol;
+      return `<span class="dynamic-symbol" style="font-size:${size}px;line-height:1;${optotypeType === "tumblingE" ? `transform:rotate(${direction}deg)` : ""}">${value}</span>`;
+    };
     const rowLevels = mode === "chart"
       ? [Math.max(0, level - 2), Math.max(0, level - 1), level, Math.min(LEVELS.length - 1, level + 1)]
       : [level];
     const rows = mode === "single"
-      ? landolt(sequence[0], optotypeHeightMm(distance, LEVELS[level].decimal) * pxPerMm)
+      ? stimulus(sequence[0], 0, optotypeHeightMm(distance, LEVELS[level].decimal) * pxPerMm)
       : rowLevels.map((rowLevel, rowIndex) => {
           const rowHeight = optotypeHeightMm(distance, LEVELS[rowLevel].decimal) * pxPerMm;
           const count = 5;
-          return `<div class="optotype-row" style="gap:${rowHeight}px">${sequence.slice(0, count).map((direction) => landolt(direction, rowHeight)).join("")}</div>`;
+          return `<div class="optotype-row" style="gap:${rowHeight * .7}px">${sequence.slice(0, count).map((symbol, index) => stimulus(symbol, index, rowHeight)).join("")}</div>`;
         }).join("");
     app.innerHTML = `
       <main class="exam-shell ${inverted ? "inverted" : ""}">
@@ -465,7 +476,7 @@
           <div><strong>${LEVELS[level].label}</strong><span>${LEVELS[level].logmar.toFixed(1)} logMAR · ${LEVELS[level].decimal.toFixed(2)} decimal</span></div>
           <div><strong>${distance} m</strong><span>Distancia</span></div>
           <div><strong>${mode === "chart" ? "Cartilla" : mode === "line" ? "Línea" : "Individual"}</strong><span>Presentación</span></div>
-          ${button("Contraste", 'data-action="contrast"')}${button("Salir", 'data-action="home"')}
+          ${button("Contraste", 'data-action="contrast"')}${button("Registrar nivel", 'data-action="result"')}
         </div>
         <section class="optotype-stage">${rows}</section>
         <div class="control-hint ${showHud ? "visible" : ""}">
@@ -473,7 +484,19 @@
         </div>
       </main>`;
     app.querySelector('[data-action="contrast"]').onclick = () => { inverted = !inverted; render(); };
-    app.querySelector('[data-action="home"]').onclick = () => { view = "home"; render(); };
+    app.querySelector('[data-action="result"]').onclick = () => { view = "result"; render(); };
+  }
+
+  function renderExamSetup() {
+    const names = { letters: "Letras Sloan", landolt: "C de Landolt", tumblingE: "E direccional", numbers: "Números" };
+    app.innerHTML = `<main class="exam-setup-shell"><p class="section-kicker">Evaluación guiada</p><h1>Configure la presentación</h1><p class="setup-intro">La aplicación presenta estímulos a escala. La respuesta, el procedimiento y la interpretación corresponden al profesional.</p><section class="setup-grid"><button class="${setupFocus === 0 ? "active" : ""}" data-setup="eye"><span>Ojo evaluado</span><strong>‹ ${eye} ›</strong></button><button class="${setupFocus === 1 ? "active" : ""}" data-setup="correction"><span>Condición</span><strong>‹ ${correction === "SC" ? "Sin corrección" : "Con corrección"} ›</strong></button><button class="${setupFocus === 2 ? "active" : ""}" data-setup="type"><span>Optotipo</span><strong>‹ ${names[optotypeType]} ›</strong></button><button class="start-exam ${setupFocus === 3 ? "active" : ""}" data-setup="start"><span>Distancia calibrada: ${distance} m</span><strong>Iniciar presentación →</strong></button></section><p class="scope-note">Herramienta de apoyo. No emite diagnósticos, interpretaciones clínicas ni conceptos de aptitud.</p></main>`;
+    app.querySelectorAll("[data-setup]").forEach((el) => el.onclick = () => { const action = el.dataset.setup; if (action === "eye") eye = eye === "OD" ? "OI" : eye === "OI" ? "AO" : "OD"; if (action === "correction") correction = correction === "SC" ? "CC" : "SC"; if (action === "type") { const types = ["letters", "landolt", "tumblingE", "numbers"]; optotypeType = types[(types.indexOf(optotypeType) + 1) % types.length]; } if (action === "start") { view = "exam"; showEntryHud(); } render(); });
+  }
+
+  function renderResult() {
+    const names = { letters: "Letras Sloan", landolt: "C de Landolt", tumblingE: "E direccional", numbers: "Números" };
+    app.innerHTML = `<main class="result-shell"><p class="section-kicker">Registro objetivo de la presentación</p><h1>${LEVELS[level].label}</h1><section class="result-metrics"><div><span>Ojo</span><strong>${eye}</strong></div><div><span>Condición</span><strong>${correction}</strong></div><div><span>Decimal</span><strong>${LEVELS[level].decimal.toFixed(2)}</strong></div><div><span>logMAR</span><strong>${LEVELS[level].logmar.toFixed(1)}</strong></div><div><span>Distancia</span><strong>${distance} m</strong></div><div><span>Optotipo</span><strong>${names[optotypeType]}</strong></div></section><p class="scope-note">Este registro describe la presentación realizada. No constituye diagnóstico ni interpreta la condición visual; debe ser documentado y valorado por el profesional.</p><div class="result-actions"><button data-result="repeat">Repetir nivel</button><button data-result="new">Nueva evaluación</button><button data-result="home">Menú principal</button></div></main>`;
+    app.querySelectorAll("[data-result]").forEach((el) => el.onclick = () => { view = el.dataset.result === "repeat" ? "exam" : el.dataset.result === "new" ? "examSetup" : "home"; render(); });
   }
 
   function render() {
@@ -481,7 +504,9 @@
     else if (view === "library") renderLibrary();
     else if (view === "calibration") renderCalibration();
     else if (view === "asset") renderAsset();
+    else if (view === "examSetup") renderExamSetup();
     else if (view === "exam") renderExam();
+    else if (view === "result") renderResult();
     else app.innerHTML = `<main class="empty-state"><h1>Cargando cartillas…</h1></main>`;
   }
 
@@ -505,7 +530,7 @@
       return;
     }
     if (key === "Backspace" || key === "Escape") {
-      view = view === "asset" ? "library" : "home";
+      view = view === "asset" ? "library" : view === "exam" ? "result" : "home";
       render();
       return;
     }
@@ -547,6 +572,20 @@
       render();
       return;
     }
+    if (view === "examSetup") {
+      const types = ["letters", "landolt", "tumblingE", "numbers"];
+      const eyes = ["OD", "OI", "AO"];
+      const corrections = ["SC", "CC"];
+      const step = key === "ArrowRight" ? 1 : key === "ArrowLeft" ? -1 : 0;
+      if (key === "ArrowUp") setupFocus = Math.max(0, setupFocus - 1);
+      else if (key === "ArrowDown") setupFocus = Math.min(3, setupFocus + 1);
+      else if (step && setupFocus === 0) eye = eyes[(eyes.indexOf(eye) + step + eyes.length) % eyes.length];
+      else if (step && setupFocus === 1) correction = corrections[(corrections.indexOf(correction) + step + corrections.length) % corrections.length];
+      else if (step && setupFocus === 2) optotypeType = types[(types.indexOf(optotypeType) + step + types.length) % types.length];
+      else if (key === "Enter" && setupFocus === 3) { view = "exam"; showEntryHud(); }
+      render(); return;
+    }
+    if (view === "result") { if (key === "Enter") view = "examSetup"; render(); return; }
     if (view === "exam") {
       if (key === "ArrowUp") level = Math.max(0, level - 1);
       else if (key === "ArrowDown") level = Math.min(LEVELS.length - 1, level + 1);
