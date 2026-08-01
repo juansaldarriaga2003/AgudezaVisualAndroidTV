@@ -319,10 +319,19 @@ public class MainActivity extends Activity {
             }
         }
 
-        Intent homeIntent = new Intent(Intent.ACTION_MAIN);
-        homeIntent.addCategory(Intent.CATEGORY_HOME);
-        homeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(homeIntent);
+        // En equipos donde esta APK es el launcher HOME, volver a HOME abriría
+        // inmediatamente Agudeza Visual otra vez. El acceso administrativo debe
+        // abrir Ajustes directamente para permitir mantenimiento mediante el PIN.
+        Intent settingsIntent = new Intent(android.provider.Settings.ACTION_SETTINGS);
+        settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(settingsIntent);
+        } catch (android.content.ActivityNotFoundException ignored) {
+            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
+            homeIntent.addCategory(Intent.CATEGORY_HOME);
+            homeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(homeIntent);
+        }
     }
 
     @Override
