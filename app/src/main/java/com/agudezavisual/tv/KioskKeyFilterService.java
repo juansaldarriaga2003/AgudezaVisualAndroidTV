@@ -9,6 +9,7 @@ import android.view.accessibility.AccessibilityEvent;
 public class KioskKeyFilterService extends AccessibilityService {
     private static final String SETTINGS_PACKAGE = "com.android.tv.settings";
     private static final String APP_PACKAGE = "com.agudezavisual.tv.kiosk";
+    private static final String VENDOR_VIDEO_PACKAGE = "com.android.smart.terminal";
     private boolean maintenanceSessionActive = false;
 
     @Override
@@ -41,6 +42,17 @@ public class KioskKeyFilterService extends AccessibilityService {
         String packageName = event.getPackageName().toString();
         if (APP_PACKAGE.equals(packageName)) {
             maintenanceSessionActive = false;
+            return;
+        }
+        if (VENDOR_VIDEO_PACKAGE.equals(packageName)) {
+            performGlobalAction(GLOBAL_ACTION_HOME);
+            Intent appIntent = new Intent(this, MainActivity.class);
+            appIntent.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+                    | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    | Intent.FLAG_ACTIVITY_SINGLE_TOP
+            );
+            startActivity(appIntent);
             return;
         }
         if (!SETTINGS_PACKAGE.equals(packageName) || maintenanceSessionActive) {
