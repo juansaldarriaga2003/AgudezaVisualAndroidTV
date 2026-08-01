@@ -168,6 +168,14 @@ public class MainActivity extends Activity {
             case KeyEvent.KEYCODE_ESCAPE:
                 handleBack();
                 return true;
+            case KeyEvent.KEYCODE_SETTINGS:
+            case KeyEvent.KEYCODE_SEARCH:
+            case KeyEvent.KEYCODE_ASSIST:
+            case KeyEvent.KEYCODE_VOICE_ASSIST:
+                // El acceso a Ajustes queda reservado al diálogo administrativo
+                // protegido por PIN. Bloquea teclas físicas de ajustes y voz.
+                enterImmersiveMode();
+                return true;
             default:
                 return super.dispatchKeyEvent(event);
         }
