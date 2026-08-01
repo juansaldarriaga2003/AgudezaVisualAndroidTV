@@ -342,11 +342,11 @@ public class MainActivity extends Activity {
         // En equipos donde esta APK es el launcher HOME, volver a HOME abriría
         // inmediatamente Agudeza Visual otra vez. El acceso administrativo debe
         // abrir Ajustes directamente para permitir mantenimiento mediante el PIN.
-        // Autoriza temporalmente la pantalla de mantenimiento. El servicio
+        // Autoriza una única entrada a la pantalla de mantenimiento. El servicio
         // global cerrará Ajustes si se abrió desde una tecla física sin este permiso.
         getSharedPreferences("kiosk_admin", MODE_PRIVATE)
             .edit()
-            .putLong("maintenance_until", System.currentTimeMillis() + 10 * 60 * 1000L)
+            .putLong("maintenance_grant_until", System.currentTimeMillis() + 10 * 1000L)
             .apply();
 
         Intent settingsIntent = new Intent(android.provider.Settings.ACTION_SETTINGS);
