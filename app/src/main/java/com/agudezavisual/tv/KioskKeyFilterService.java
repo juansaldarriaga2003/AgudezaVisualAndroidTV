@@ -2,6 +2,7 @@ package com.agudezavisual.tv;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.content.Intent;
 import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityEvent;
 
@@ -40,6 +41,14 @@ public class KioskKeyFilterService extends AccessibilityService {
             .getLong("maintenance_until", 0L);
         if (System.currentTimeMillis() > maintenanceUntil) {
             performGlobalAction(GLOBAL_ACTION_HOME);
+            Intent adminIntent = new Intent(this, MainActivity.class);
+            adminIntent.putExtra("open_admin", true);
+            adminIntent.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+                    | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    | Intent.FLAG_ACTIVITY_SINGLE_TOP
+            );
+            startActivity(adminIntent);
         }
     }
 
