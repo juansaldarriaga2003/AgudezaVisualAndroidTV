@@ -102,6 +102,18 @@ public class MainActivity extends Activity {
         }
 
         webView.requestFocus();
+        if (getIntent().getBooleanExtra("open_admin", false)) {
+            webView.postDelayed(this::showAdminExitDialog, 350);
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent.getBooleanExtra("open_admin", false)) {
+            webView.postDelayed(this::showAdminExitDialog, 350);
+        }
     }
 
     @Override
