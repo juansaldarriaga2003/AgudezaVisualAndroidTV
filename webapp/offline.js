@@ -47,13 +47,15 @@
   let showHud = true;
   let hudTimer;
   let calibration = loadCalibration();
-  let pxPerMm = calibration ? calibration.pxPerMm : 3.78;
+  let pxPerMmX = calibration ? (calibration.pxPerMmX || calibration.pxPerMm) : 3.78;
+  let pxPerMmY = calibration ? (calibration.pxPerMmY || calibration.pxPerMm) : 3.78;
   let screenInches = calibration && calibration.screenInches ? calibration.screenInches : 43;
   let calibrationStage = 0;
   let calibrationFocus = 0;
-  let referencePx = calibration
-    ? Math.round(calibration.pxPerMm * 100)
+  let referencePxX = calibration
+    ? Math.round(pxPerMmX * 100)
     : Math.round(estimatedPxPerMm(screenInches) * 100);
+  let referencePxY = calibration ? Math.round(pxPerMmY * 100) : referencePxX;
   let isCalibrated = Boolean(calibration);
   if (calibration && calibration.distanceM) distance = calibration.distanceM;
 
@@ -62,7 +64,7 @@
     if (!stored) return null;
     try {
       const parsed = JSON.parse(stored);
-      if (![2, 3].includes(parsed.version) || !(parsed.pxPerMm > 0)) return null;
+      if (![2, 3, 4].includes(parsed.version) || !((parsed.pxPerMmX || parsed.pxPerMm) > 0)) return null;
       return parsed;
     } catch (_) {
       return null;
@@ -103,6 +105,14 @@
   function visibleImages(group) {
     if (!group) return [];
     return group.images;
+  }
+  function groupDisplay(group) {
+    const key = folderKey(group);
+    if (key.includes("PRUEBAS Y AYUDAS")) return { title: "Pruebas complementarias", family: "Refracción y fijación", description: "Duocromo, abanicos, fijación y estímulos de apoyo" };
+    if (key.includes("STEREOPSIS")) return { title: "Estereopsis", family: "Visión binocular", description: "Láminas para procedimientos con el equipo indicado" };
+    if (key.includes("COLOR")) return { title: "Percepción del color", family: "Color", description: "Láminas cromáticas bajo condiciones controladas" };
+    if (key.includes("ENFERMEDADES") || key.includes("LENTES")) return { title: group.label, family: "Material visual", description: DESCRIPTIONS[group.label] || "Material educativo para el profesional" };
+    return { title: group.label, family: "Agudeza visual", description: DESCRIPTIONS[group.label] || "Cartillas y estímulos visuales" };
   }
 
   function distanceGroups() {
@@ -146,11 +156,21 @@
     return distanceM * 1000 * Math.tan((minutes / 60) * Math.PI / 180);
   }
 
-  function landolt(direction, sizePx) {
-    return `<svg class="landolt" width="${sizePx}" height="${sizePx}" viewBox="0 0 5 5" aria-label="C de Landolt" style="transform:rotate(${direction}deg)">
-      <circle cx="2.5" cy="2.5" r="2" fill="none" stroke="currentColor" stroke-width="1"/>
-      <rect x="2.5" y="2" width="2.5" height="1" fill="var(--exam-bg)"/>
-    </svg>`;
+  const LETTER_PATHS = {
+    C: '<circle cx="2.5" cy="2.5" r="2" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2.5" y="2" width="2.5" height="1" fill="var(--exam-bg)"/>',
+    D: '<path fill-rule="evenodd" d="M0 0h2.4C4.1 0 5 1.05 5 2.5S4.1 5 2.4 5H0V0Zm1 1v3h1.35C3.45 4 4 3.45 4 2.5S3.45 1 2.35 1H1Z"/>',
+    H: '<path d="M0 0h1v2h3V0h1v5H4V3H1v2H0Z"/>', K: '<path d="M0 0h1v2l2.5-2H5L2.2 2.4 5 5H3.5L1 3v2H0Z"/>',
+    N: '<path d="M0 0h1l3 3.45V0h1v5H4L1 1.55V5H0Z"/>',
+    O: '<path fill-rule="evenodd" d="M2.5 0C4.15 0 5 1.05 5 2.5S4.15 5 2.5 5 0 3.95 0 2.5 0.85 0 2.5 0Zm0 1C1.5 1 1 1.55 1 2.5S1.5 4 2.5 4 4 3.45 4 2.5 3.5 1 2.5 1Z"/>',
+    R: '<path fill-rule="evenodd" d="M0 0h2.6C4.1 0 5 .75 5 2c0 .85-.45 1.45-1.25 1.75L5 5H3.55L2.4 3.9H1V5H0V0Zm1 1v1.9h1.5c.95 0 1.5-.3 1.5-.95S3.45 1 2.5 1H1Z"/>',
+    S: '<path d="M4.65 1.15C4.1.35 3.45 0 2.5 0 1.05 0 .2.75.2 1.7c0 1.1.8 1.55 2.25 1.65 1.05.08 1.45.2 1.45.55 0 .4-.45.6-1.25.6-.9 0-1.55-.3-2.15-1L0 4.35C.7 4.85 1.5 5 2.5 5 4.1 5 5 4.3 5 3.3c0-1.05-.75-1.5-2.25-1.65-1.1-.1-1.45-.22-1.45-.55 0-.38.42-.6 1.15-.6.75 0 1.3.28 1.75.95Z"/>',
+    V: '<path d="M0 0h1.1l1.4 3.75L3.9 0H5L3 5H2Z"/>', Z: '<path d="M0 0h5v1L1.45 4H5v1H0V4l3.55-3H0Z"/>'
+  };
+  function geometricOptotype(type, symbol, sizeMm, direction) {
+    const width = sizeMm * pxPerMmX, height = sizeMm * pxPerMmY;
+    if (type === "numbers") return `<span class="numeric-optotype" style="width:${width}px;height:${height}px;font-size:${height}px;line-height:${height}px">${symbol}</span>`;
+    const content = type === "landolt" ? LETTER_PATHS.C : type === "tumblingE" ? '<path d="M0 0h5v1H1v1h3v1H1v1h4v1H0Z"/>' : LETTER_PATHS[symbol];
+    return `<svg class="geometric-optotype" width="${width}" height="${height}" viewBox="0 0 5 5" style="${type === "letters" ? "" : `transform:rotate(${direction}deg)`}">${content}</svg>`;
   }
 
   function button(label, attrs = "") {
@@ -245,8 +265,9 @@
           ${list.map((group, index) => `
             <button class="category-card ${selectedGroup === index ? "active" : ""}" data-group="${index}">
               <span class="category-index">${String(index + 1).padStart(2, "0")}</span>
-              <strong>${esc(group.label)}</strong>
-              <span>${esc(DESCRIPTIONS[group.label] || "Material visual complementario")}</span>
+              <em>${esc(groupDisplay(group).family)}</em>
+              <strong>${esc(groupDisplay(group).title)}</strong>
+              <span>${esc(groupDisplay(group).description)}</span>
               <small>${visibleImages(group).length} imágenes disponibles</small>
             </button>`).join("")}
         </section>
@@ -329,7 +350,7 @@
       });
       app.querySelector("#screen-inches").onchange = (event) => {
         screenInches = Math.max(15, Math.min(120, Number(event.target.value) || 43));
-        referencePx = Math.round(estimatedPxPerMm(screenInches) * 100);
+        referencePxX = Math.round(estimatedPxPerMm(screenInches) * 100); referencePxY = referencePxX;
         render();
       };
       app.querySelector('[data-action="continue"]').onclick = continueCalibration;
@@ -341,31 +362,31 @@
         ${button("← Pantalla", 'class="floating-back" data-action="back"')}
         <div class="calibration-copy">
           <p class="section-kicker">Paso 2 de 2 · Verificación física</p>
-          <h1>Ajuste la barra hasta que mida exactamente 100 mm.</h1>
-          <p>En el TV seleccione “Ajustar a pantalla”, “1:1” o “Sin overscan”. Mida entre los extremos verdes con una regla física. Las pulgadas proporcionan una aproximación; esta barra confirma la escala clínica real.</p>
+          <h1>Ajuste el patrón hasta medir exactamente 100 × 100 mm.</h1>
+          <p>En el TV seleccione “Ajustar a pantalla”, “1:1” o “Sin overscan”. Mida el ancho y el alto. Use ← → para el ancho y ↑ ↓ para el alto.</p>
           <div class="calibration-profile"><strong>${screenInches.toFixed(1)}″</strong><span>${physical.widthCm.toFixed(1)} × ${physical.heightCm.toFixed(1)} cm · ${distance} m</span></div>
         </div>
         <div class="ruler-stage">
-          <div class="ruler-label">100 mm</div>
-          <div class="reference-line" style="width:${referencePx}px"></div>
-          <div class="ruler-value">${Math.round(referencePx)} px · pantalla ${window.innerWidth} × ${window.innerHeight}</div>
+          <div class="ruler-label">100 × 100 mm</div>
+          <div class="reference-square" style="width:${referencePxX}px;height:${referencePxY}px"></div>
+          <div class="ruler-value">Ancho ${Math.round(referencePxX)} px · Alto ${Math.round(referencePxY)} px</div>
         </div>
         <div class="calibration-actions">
-          ${button("−", 'data-adjust="-1"')}
+          ${button("− ancho", 'data-adjust="-1"')}
           ${button("Guardar calibración", 'class="confirm" data-action="save"')}
-          ${button("+", 'data-adjust="1"')}
+          ${button("+ ancho", 'data-adjust="1"')}
         </div>
       </main>`;
     app.querySelector('[data-action="back"]').onclick = () => { calibrationStage = 0; calibrationFocus = 0; render(); };
     app.querySelectorAll("[data-adjust]").forEach((element) => {
-      element.onclick = () => { referencePx = Math.max(40, referencePx + Number(element.dataset.adjust)); render(); };
+      element.onclick = () => { referencePxX = Math.max(40, referencePxX + Number(element.dataset.adjust)); render(); };
     });
     app.querySelector('[data-action="save"]').onclick = saveCalibration;
   }
 
   function adjustScreenInches(step) {
     screenInches = Math.max(15, Math.min(120, Math.round((screenInches + step) * 10) / 10));
-    referencePx = Math.round(estimatedPxPerMm(screenInches) * 100);
+    referencePxX = Math.round(estimatedPxPerMm(screenInches) * 100); referencePxY = referencePxX;
     render();
   }
 
@@ -375,18 +396,18 @@
   }
 
   function continueCalibration() {
-    referencePx = Math.max(40, Math.round(estimatedPxPerMm(screenInches) * 100));
+    referencePxX = Math.max(40, Math.round(estimatedPxPerMm(screenInches) * 100)); referencePxY = referencePxX;
     calibrationStage = 1;
     render();
   }
 
   function saveCalibration() {
-    pxPerMm = referencePx / 100;
+    pxPerMmX = referencePxX / 100; pxPerMmY = referencePxY / 100;
     isCalibrated = true;
     const physical = physicalScreenSize(screenInches);
     calibration = {
-      version: 3,
-      pxPerMm,
+      version: 4,
+      pxPerMm: (pxPerMmX + pxPerMmY) / 2, pxPerMmX, pxPerMmY,
       screenInches,
       screenWidthCm: physical.widthCm,
       screenHeightCm: physical.heightCm,
@@ -410,7 +431,7 @@
     }
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const baseScale = group.distance === 0 ? 1 : pxPerMm / 3.78;
+    const baseScale = group.distance === 0 ? 1 : Math.min(pxPerMmX, pxPerMmY) / 3.78;
     const displayScale = Math.min(baseScale, width * 0.98 / image.width, height * 0.98 / image.height);
     const cropWidth = Math.max(1, (image.width - 4) * displayScale);
     const cropHeight = Math.max(1, (image.height - 4) * displayScale);
@@ -454,21 +475,19 @@
     }
     const source = optotypeType === "numbers" ? NUMBERS : SLOAN;
     const sequence = Array.from({ length: 5 }, (_, index) => source[(index * 3 + randomSeed) % source.length]);
-    const stimulus = (symbol, index, size) => {
+    const stimulus = (symbol, index, sizeMm) => {
       const direction = DIRECTIONS[(index + randomSeed) % DIRECTIONS.length];
-      if (optotypeType === "landolt") return landolt(direction, size);
-      const value = optotypeType === "tumblingE" ? "E" : symbol;
-      return `<span class="dynamic-symbol" style="font-size:${size}px;line-height:1;${optotypeType === "tumblingE" ? `transform:rotate(${direction}deg)` : ""}">${value}</span>`;
+      return geometricOptotype(optotypeType, symbol, sizeMm, direction);
     };
     const rowLevels = mode === "chart"
       ? [Math.max(0, level - 2), Math.max(0, level - 1), level, Math.min(LEVELS.length - 1, level + 1)]
       : [level];
     const rows = mode === "single"
-      ? stimulus(sequence[0], 0, optotypeHeightMm(distance, LEVELS[level].decimal) * pxPerMm)
+      ? stimulus(sequence[0], 0, optotypeHeightMm(distance, LEVELS[level].decimal))
       : rowLevels.map((rowLevel, rowIndex) => {
-          const rowHeight = optotypeHeightMm(distance, LEVELS[rowLevel].decimal) * pxPerMm;
+          const rowMm = optotypeHeightMm(distance, LEVELS[rowLevel].decimal);
           const count = 5;
-          return `<div class="optotype-row" style="gap:${rowHeight * .7}px">${sequence.slice(0, count).map((symbol, index) => stimulus(symbol, index, rowHeight)).join("")}</div>`;
+          return `<div class="optotype-row" style="gap:${rowMm * pxPerMmX}px">${sequence.slice(0, count).map((symbol, index) => stimulus(symbol, index, rowMm)).join("")}</div>`;
         }).join("");
     app.innerHTML = `
       <main class="exam-shell ${inverted ? "inverted" : ""}">
@@ -488,13 +507,13 @@
   }
 
   function renderExamSetup() {
-    const names = { letters: "Letras Sloan", landolt: "C de Landolt", tumblingE: "E direccional", numbers: "Números" };
+    const names = { letters: "Letras geométricas", landolt: "C de Landolt", tumblingE: "E direccional", numbers: "Números" };
     app.innerHTML = `<main class="exam-setup-shell"><p class="section-kicker">Evaluación guiada</p><h1>Configure la presentación</h1><p class="setup-intro">La aplicación presenta estímulos a escala. La respuesta, el procedimiento y la interpretación corresponden al profesional.</p><section class="setup-grid"><button class="${setupFocus === 0 ? "active" : ""}" data-setup="eye"><span>Ojo evaluado</span><strong>‹ ${eye} ›</strong></button><button class="${setupFocus === 1 ? "active" : ""}" data-setup="correction"><span>Condición</span><strong>‹ ${correction === "SC" ? "Sin corrección" : "Con corrección"} ›</strong></button><button class="${setupFocus === 2 ? "active" : ""}" data-setup="type"><span>Optotipo</span><strong>‹ ${names[optotypeType]} ›</strong></button><button class="start-exam ${setupFocus === 3 ? "active" : ""}" data-setup="start"><span>Distancia calibrada: ${distance} m</span><strong>Iniciar presentación →</strong></button></section><p class="scope-note">Herramienta de apoyo. No emite diagnósticos, interpretaciones clínicas ni conceptos de aptitud.</p></main>`;
     app.querySelectorAll("[data-setup]").forEach((el) => el.onclick = () => { const action = el.dataset.setup; if (action === "eye") eye = eye === "OD" ? "OI" : eye === "OI" ? "AO" : "OD"; if (action === "correction") correction = correction === "SC" ? "CC" : "SC"; if (action === "type") { const types = ["letters", "landolt", "tumblingE", "numbers"]; optotypeType = types[(types.indexOf(optotypeType) + 1) % types.length]; } if (action === "start") { view = "exam"; showEntryHud(); } render(); });
   }
 
   function renderResult() {
-    const names = { letters: "Letras Sloan", landolt: "C de Landolt", tumblingE: "E direccional", numbers: "Números" };
+    const names = { letters: "Letras geométricas", landolt: "C de Landolt", tumblingE: "E direccional", numbers: "Números" };
     app.innerHTML = `<main class="result-shell"><p class="section-kicker">Registro objetivo de la presentación</p><h1>${LEVELS[level].label}</h1><section class="result-metrics"><div><span>Ojo</span><strong>${eye}</strong></div><div><span>Condición</span><strong>${correction}</strong></div><div><span>Decimal</span><strong>${LEVELS[level].decimal.toFixed(2)}</strong></div><div><span>logMAR</span><strong>${LEVELS[level].logmar.toFixed(1)}</strong></div><div><span>Distancia</span><strong>${distance} m</strong></div><div><span>Optotipo</span><strong>${names[optotypeType]}</strong></div></section><p class="scope-note">Este registro describe la presentación realizada. No constituye diagnóstico ni interpreta la condición visual; debe ser documentado y valorado por el profesional.</p><div class="result-actions"><button data-result="repeat">Repetir nivel</button><button data-result="new">Nueva evaluación</button><button data-result="home">Menú principal</button></div></main>`;
     app.querySelectorAll("[data-result]").forEach((el) => el.onclick = () => { view = el.dataset.result === "repeat" ? "exam" : el.dataset.result === "new" ? "examSetup" : "home"; render(); });
   }
@@ -563,10 +582,10 @@
         else if (key === "ArrowRight" && calibrationFocus === 1) return adjustDistance(1);
         else if (key === "Enter" && calibrationFocus === 2) return continueCalibration();
       } else {
-        if (key === "ArrowLeft") referencePx = Math.max(40, referencePx - 1);
-        else if (key === "ArrowRight") referencePx += 1;
-        else if (key === "ArrowDown") referencePx = Math.max(40, referencePx - 10);
-        else if (key === "ArrowUp") referencePx += 10;
+        if (key === "ArrowLeft") referencePxX = Math.max(40, referencePxX - 1);
+        else if (key === "ArrowRight") referencePxX += 1;
+        else if (key === "ArrowDown") referencePxY = Math.max(40, referencePxY - 1);
+        else if (key === "ArrowUp") referencePxY += 1;
         else if (key === "Enter") return saveCalibration();
       }
       render();
