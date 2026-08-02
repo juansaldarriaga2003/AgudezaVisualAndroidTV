@@ -201,6 +201,7 @@ kbd {
 .reference-line { height: 8px; background: var(--lime); box-shadow: 0 0 28px rgba(185,237,66,.48); position: relative; max-width: 90%; }
 .reference-line::before, .reference-line::after { content: ""; position: absolute; width: 4px; height: 38px; top: -15px; background: var(--lime); }
 .reference-line::before { left: 0; } .reference-line::after { right: 0; }
+.reference-square { max-width:82%; max-height:58vh; border:5px solid var(--lime); background:linear-gradient(45deg,transparent 49.5%,rgba(185,237,66,.38) 50%,transparent 50.5%),linear-gradient(-45deg,transparent 49.5%,rgba(185,237,66,.38) 50%,transparent 50.5%); box-shadow:0 0 28px rgba(185,237,66,.35); flex:none; }
 .ruler-value { color: var(--lime); margin-top: 34px; font-weight: 800; }
 .calibration-actions { grid-column: 1 / -1; display: flex; justify-content: center; gap: 14px; }
 .calibration-actions button {
@@ -275,7 +276,8 @@ kbd {
 .exam-hud button + button { margin-left: 0; }
 .optotype-stage { width: 96vw; height: 92vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.5vh; overflow: hidden; }
 .optotype-row { display: flex; justify-content: center; align-items: center; flex: none; }
-.landolt { display: block; flex: none; overflow: visible; color: currentColor; }
+.geometric-optotype { display:block; flex:none; overflow:visible; color:currentColor; transform-origin:center; }
+.numeric-optotype { display:inline-grid; place-items:center; flex:none; font-family:Arial Black,Arial,sans-serif; font-weight:900; }
 .control-hint {
   position: fixed; bottom: 2.2vh; display: flex; gap: 8px; padding: 9px 13px; border-radius: 999px;
   background: rgba(16,35,29,.91); color: white; font-size: 11px; opacity: 0; transition: .25s;
