@@ -113,7 +113,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view estable >/dev/null 2>&1 || gh release create estable --title "Agudeza Visual 3.0.0" --notes "Bloqueo de video del fabricante, acceso obligatorio por PIN y modo kiosco reforzado."
+          gh release view estable >/dev/null 2>&1 || gh release create estable --title "Agudeza Visual 3.1.0" --notes "Calibración horizontal y vertical, optotipos geométricos, acceso completo a cartillas y modo kiosco reforzado."
           gh release upload estable AgudezaVisual-Offline.apk AgudezaVisual-Kiosco.apk --clobber
-          gh release edit estable --title "Agudeza Visual 3.0.0" --notes "Bloqueo de video del fabricante, acceso obligatorio por PIN y modo kiosco reforzado."
+          gh release edit estable --title "Agudeza Visual 3.1.0" --notes "Calibración horizontal y vertical, optotipos geométricos, acceso completo a cartillas y modo kiosco reforzado."
           gh release edit estable --latest
