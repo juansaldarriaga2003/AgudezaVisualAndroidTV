@@ -8,6 +8,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,11 +20,14 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.EditText;
 import android.widget.Toast;
+
+import java.util.List;
 
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
@@ -38,11 +42,14 @@ public class MainActivity extends Activity {
     private boolean adminLongPressTriggered = false;
     private boolean adminDialogVisible = false;
     private boolean kioskNoticeShown = false;
+    private boolean mainMenuVisible = false;
     private final Runnable showAdminRunnable = new Runnable() {
         @Override
         public void run() {
-            adminLongPressTriggered = true;
-            showAdminExitDialog();
+            if (mainMenuVisible) {
+                adminLongPressTriggered = true;
+                showAdminExitDialog();
+            }
         }
     };
 
@@ -75,6 +82,7 @@ public class MainActivity extends Activity {
         );
 
         WebView.setWebContentsDebuggingEnabled(false);
+        webView.addJavascriptInterface(new KioskBridge(), "KioskBridge");
         WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
             .build();
@@ -120,6 +128,10 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (BuildConfig.KIOSK_MODE) {
+            getSharedPreferences("kiosk_admin", MODE_PRIVATE)
+                .edit()
+                .remove("navigation_unlocked")
+                .apply();
             activateKioskMode();
         }
     }
@@ -128,7 +140,7 @@ public class MainActivity extends Activity {
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (BuildConfig.KIOSK_MODE && isConfirmKey(event.getKeyCode())) {
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                if (event.getRepeatCount() == 0 && !adminDialogVisible) {
+                if (event.getRepeatCount() == 0 && !adminDialogVisible && mainMenuVisible) {
                     adminLongPressTriggered = false;
                     adminHandler.postDelayed(showAdminRunnable, 4000);
                 }
@@ -280,7 +292,7 @@ public class MainActivity extends Activity {
     }
 
     private void showAdminExitDialog() {
-        if (adminDialogVisible || isFinishing()) {
+        if (adminDialogVisible || isFinishing() || !mainMenuVisible) {
             return;
         }
         adminDialogVisible = true;
@@ -347,17 +359,34 @@ public class MainActivity extends Activity {
         getSharedPreferences("kiosk_admin", MODE_PRIVATE)
             .edit()
             .putLong("maintenance_grant_until", System.currentTimeMillis() + 10 * 1000L)
+            .putBoolean("navigation_unlocked", true)
             .apply();
+        openSystemLauncher();
+    }
 
+    private void openSystemLauncher() {
+        Intent homeIntent = new Intent(Intent.ACTION_MAIN);
+        homeIntent.addCategory(Intent.CATEGORY_HOME);
+        List<ResolveInfo> homes = getPackageManager().queryIntentActivities(homeIntent, 0);
+        for (ResolveInfo home : homes) {
+            if (!getPackageName().equals(home.activityInfo.packageName)) {
+                Intent launcher = new Intent(Intent.ACTION_MAIN);
+                launcher.addCategory(Intent.CATEGORY_HOME);
+                launcher.setClassName(home.activityInfo.packageName, home.activityInfo.name);
+                launcher.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(launcher);
+                return;
+            }
+        }
         Intent settingsIntent = new Intent(android.provider.Settings.ACTION_SETTINGS);
         settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        try {
-            startActivity(settingsIntent);
-        } catch (android.content.ActivityNotFoundException ignored) {
-            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
-            homeIntent.addCategory(Intent.CATEGORY_HOME);
-            homeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(homeIntent);
+        startActivity(settingsIntent);
+    }
+
+    private final class KioskBridge {
+        @JavascriptInterface
+        public void setView(String view) {
+            runOnUiThread(() -> mainMenuVisible = "home".equals(view));
         }
     }
 
