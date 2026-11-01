@@ -488,6 +488,11 @@
     else app.innerHTML = `<main class="empty-state"><h1>Cargando cartillas…</h1></main>`;
   }
 
+  window.AgudezaVisualOpenHome = function () {
+    view = "home";
+    render();
+  };
+
   function normalizedKey(event) {
     const aliases = { Accept: "Enter", OK: "Enter", Select: "Enter", Spacebar: "Enter", GoBack: "Backspace", BrowserBack: "Backspace" };
     const codes = { 4: "Backspace", 13: "Enter", 23: "Enter", 37: "ArrowLeft", 38: "ArrowUp", 39: "ArrowRight", 40: "ArrowDown", 66: "Enter", 96: "Enter", 160: "Enter", 179: "Enter", 415: "Enter", 461: "Backspace", 10009: "Backspace" };
