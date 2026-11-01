@@ -1,9 +1,9 @@
-name: Generar APK 2.3.5 H96MAX
+name: Generar APK 2.3.6 H96MAX
 
 on:
   workflow_dispatch:
   push:
-    branches: [v2.3.5-h96max]
+    branches: [v2.3.6-h96max]
 
 jobs:
   build:
@@ -50,8 +50,8 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: gradle assembleKioskRelease
       - name: Preparar instalador
-        run: cp app/build/outputs/apk/kiosk/release/app-kiosk-release.apk AgudezaVisual-2.3.5-Kiosco-H96MAX.apk
+        run: cp app/build/outputs/apk/kiosk/release/app-kiosk-release.apk AgudezaVisual-2.3.6-Kiosco-H96MAX.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: AgudezaVisual-2.3.5-Kiosco-H96MAX
-          path: AgudezaVisual-2.3.5-Kiosco-H96MAX.apk
+          name: AgudezaVisual-2.3.6-Kiosco-H96MAX
+          path: AgudezaVisual-2.3.6-Kiosco-H96MAX.apk
