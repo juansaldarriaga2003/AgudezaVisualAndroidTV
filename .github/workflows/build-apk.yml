@@ -1,28 +1,28 @@
-name: Generar APK Android TV
+name: Reconstruir APK 2.3.4 H96MAX
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
-
-permissions:
-  contents: write
+    branches: [v2.3.4-h96max]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
-      - name: Instalar SDK de compilación
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      - name: Preparar SDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
       - name: Restaurar recursos offline
         run: |
           cat offline-assets.zip.part-* > offline-assets.zip
@@ -31,89 +31,28 @@ jobs:
           cat app/src/main/assets/optotypes/manifest.json >> app/src/main/assets/optotypes/manifest-data.js
           printf ';\n' >> app/src/main/assets/optotypes/manifest-data.js
           cp webapp/index.html webapp/offline.css webapp/offline.js app/src/main/assets/
-      - name: Verificar código sin firma de producción
-        run: gradle assembleNormalDebug assembleKioskDebug
-      - name: Restaurar clave privada de firma
+      - name: Verificar código
+        run: gradle assembleKioskDebug
+      - name: Restaurar firma
         env:
           SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
-          require_secret() {
-            if [ -z "$2" ]; then
-              echo "::error::Falta el secreto de GitHub $1. Configúrelo en Settings > Secrets and variables > Actions."
-              exit 1
-            fi
-          }
-
-          require_secret SIGNING_KEYSTORE_BASE64 "$SIGNING_KEYSTORE_BASE64"
-          require_secret SIGNING_STORE_PASSWORD "$SIGNING_STORE_PASSWORD"
-          require_secret SIGNING_KEY_ALIAS "$SIGNING_KEY_ALIAS"
-          require_secret SIGNING_KEY_PASSWORD "$SIGNING_KEY_PASSWORD"
-
-          # Admite Base64 en una sola línea o con saltos de línea. También elimina
-          # comillas accidentales y el prefijo habitual de una URL de datos.
-          normalized_key="$(printf '%s' "$SIGNING_KEYSTORE_BASE64" \
-            | tr -d '\r\n\t ' \
-            | sed -e 's/^data:[^,]*,//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")"
-
-          if ! printf '%s' "$normalized_key" | base64 --decode > "$RUNNER_TEMP/agudeza-visual.jks" 2>/dev/null; then
-            echo "::error::SIGNING_KEYSTORE_BASE64 no es un Base64 válido. Vuelva a convertir el archivo .jks completo y reemplace el secreto."
-            exit 1
-          fi
-
-          if [ ! -s "$RUNNER_TEMP/agudeza-visual.jks" ]; then
-            echo "::error::La llave decodificada está vacía. SIGNING_KEYSTORE_BASE64 no contiene el archivo .jks."
-            exit 1
-          fi
-
-          if ! keytool -list \
-            -keystore "$RUNNER_TEMP/agudeza-visual.jks" \
-            -storepass "$SIGNING_STORE_PASSWORD" \
-            -alias "$SIGNING_KEY_ALIAS" >/dev/null 2>&1; then
-            echo "::error::No fue posible abrir la llave. Revise SIGNING_STORE_PASSWORD y SIGNING_KEY_ALIAS."
-            exit 1
-          fi
-
-          # Importar temporalmente el alias verifica también la contraseña de la
-          # clave privada antes de iniciar Gradle.
-          if ! keytool -importkeystore -noprompt \
-            -srckeystore "$RUNNER_TEMP/agudeza-visual.jks" \
-            -srcstorepass "$SIGNING_STORE_PASSWORD" \
-            -srcalias "$SIGNING_KEY_ALIAS" \
-            -srckeypass "$SIGNING_KEY_PASSWORD" \
-            -destkeystore "$RUNNER_TEMP/signing-validation.p12" \
-            -deststoretype PKCS12 \
-            -deststorepass validation-only-2026 \
-            -destkeypass validation-only-2026 >/dev/null 2>&1; then
-            echo "::error::La llave existe, pero SIGNING_KEY_PASSWORD no corresponde al alias configurado."
-            exit 1
-          fi
-
-          rm -f "$RUNNER_TEMP/signing-validation.p12"
-      - name: Compilar instaladores firmados
+          normalized_key="$(printf '%s' "$SIGNING_KEYSTORE_BASE64" | tr -d '\r\n\t ' | sed -e 's/^data:[^,]*,//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")"
+          printf '%s' "$normalized_key" | base64 --decode > "$RUNNER_TEMP/agudeza-visual.jks"
+          keytool -list -keystore "$RUNNER_TEMP/agudeza-visual.jks" -storepass "$SIGNING_STORE_PASSWORD" -alias "$SIGNING_KEY_ALIAS" >/dev/null
+      - name: Compilar APK kiosco firmada
         env:
           SIGNING_STORE_FILE: ${{ runner.temp }}/agudeza-visual.jks
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-        run: gradle assembleNormalRelease assembleKioskRelease
-      - name: Preparar instaladores
-        run: |
-          cp app/build/outputs/apk/normal/release/app-normal-release.apk AgudezaVisual-Offline.apk
-          cp app/build/outputs/apk/kiosk/release/app-kiosk-release.apk AgudezaVisual-Kiosco.apk
+        run: gradle assembleKioskRelease
+      - name: Preparar instalador
+        run: cp app/build/outputs/apk/kiosk/release/app-kiosk-release.apk AgudezaVisual-2.3.4-Kiosco-H96MAX.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: AgudezaVisual-Instaladores
-          path: |
-            AgudezaVisual-Offline.apk
-            AgudezaVisual-Kiosco.apk
-      - name: Publicar o actualizar GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view estable >/dev/null 2>&1 || gh release create estable --title "Agudeza Visual 2.3.4" --notes "Bloqueo de video del fabricante, acceso obligatorio por PIN y modo kiosco reforzado."
-          gh release upload estable AgudezaVisual-Offline.apk AgudezaVisual-Kiosco.apk --clobber
-          gh release edit estable --title "Agudeza Visual 2.3.4" --notes "Bloqueo de video del fabricante, acceso obligatorio por PIN y modo kiosco reforzado."
-          gh release edit estable --latest
+          name: AgudezaVisual-2.3.4-Kiosco-H96MAX
+          path: AgudezaVisual-2.3.4-Kiosco-H96MAX.apk
