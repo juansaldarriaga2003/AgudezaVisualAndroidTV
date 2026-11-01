@@ -3,7 +3,7 @@ name: Generar APK Android TV
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, v2.1.0-h96max]
 
 jobs:
   build:
