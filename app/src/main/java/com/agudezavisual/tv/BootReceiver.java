@@ -11,6 +11,11 @@ public class BootReceiver extends BroadcastReceiver {
             return;
         }
 
+        context.getSharedPreferences("kiosk_admin", Context.MODE_PRIVATE)
+            .edit()
+            .remove("navigation_unlocked")
+            .apply();
+
         Intent launchIntent = new Intent(context, MainActivity.class);
         launchIntent.addFlags(
             Intent.FLAG_ACTIVITY_NEW_TASK
