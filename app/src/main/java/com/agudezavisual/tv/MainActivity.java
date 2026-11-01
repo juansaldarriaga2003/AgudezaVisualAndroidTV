@@ -43,6 +43,7 @@ public class MainActivity extends Activity {
     private boolean adminDialogVisible = false;
     private boolean kioskNoticeShown = false;
     private boolean mainMenuVisible = false;
+    private boolean pendingAdminRequest = false;
     private final Runnable showAdminRunnable = new Runnable() {
         @Override
         public void run() {
@@ -111,7 +112,7 @@ public class MainActivity extends Activity {
 
         webView.requestFocus();
         if (getIntent().getBooleanExtra("open_admin", false)) {
-            webView.postDelayed(this::showAdminExitDialog, 350);
+            requestAdminFromSystemKey();
         }
     }
 
@@ -120,7 +121,7 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         if (intent.getBooleanExtra("open_admin", false)) {
-            webView.postDelayed(this::showAdminExitDialog, 350);
+            requestAdminFromSystemKey();
         }
     }
 
@@ -296,6 +297,7 @@ public class MainActivity extends Activity {
             return;
         }
         adminDialogVisible = true;
+        pendingAdminRequest = false;
 
         EditText pinInput = new EditText(this);
         pinInput.setHint(R.string.admin_pin_hint);
@@ -386,7 +388,27 @@ public class MainActivity extends Activity {
     private final class KioskBridge {
         @JavascriptInterface
         public void setView(String view) {
-            runOnUiThread(() -> mainMenuVisible = "home".equals(view));
+            runOnUiThread(() -> {
+                mainMenuVisible = "home".equals(view);
+                if (mainMenuVisible && pendingAdminRequest && !adminDialogVisible) {
+                    showAdminExitDialog();
+                }
+            });
+        }
+    }
+
+    private void requestAdminFromSystemKey() {
+        pendingAdminRequest = true;
+        if (webView != null) {
+            webView.evaluateJavascript(
+                "window.AgudezaVisualOpenHome && window.AgudezaVisualOpenHome();",
+                null
+            );
+            webView.postDelayed(() -> {
+                if (pendingAdminRequest && mainMenuVisible && !adminDialogVisible) {
+                    showAdminExitDialog();
+                }
+            }, 400);
         }
     }
 
