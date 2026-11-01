@@ -7,10 +7,8 @@ import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityEvent;
 
 public class KioskKeyFilterService extends AccessibilityService {
-    private static final String SETTINGS_PACKAGE = "com.android.tv.settings";
     private static final String APP_PACKAGE = "com.agudezavisual.tv.kiosk";
     private static final String VENDOR_VIDEO_PACKAGE = "com.android.smart.terminal";
-    private boolean maintenanceSessionActive = false;
 
     @Override
     protected void onServiceConnected() {
@@ -24,11 +22,19 @@ public class KioskKeyFilterService extends AccessibilityService {
         if (!BuildConfig.KIOSK_MODE) {
             return false;
         }
+        if (isNavigationUnlocked()) {
+            return false;
+        }
         int keyCode = event.getKeyCode();
-        return keyCode == KeyEvent.KEYCODE_SETTINGS
+        return keyCode == KeyEvent.KEYCODE_HOME
+            || keyCode == KeyEvent.KEYCODE_APP_SWITCH
+            || keyCode == KeyEvent.KEYCODE_SETTINGS
             || keyCode == KeyEvent.KEYCODE_SEARCH
             || keyCode == KeyEvent.KEYCODE_ASSIST
-            || keyCode == KeyEvent.KEYCODE_VOICE_ASSIST;
+            || keyCode == KeyEvent.KEYCODE_VOICE_ASSIST
+            || keyCode == KeyEvent.KEYCODE_GUIDE
+            || keyCode == KeyEvent.KEYCODE_TV
+            || keyCode == KeyEvent.KEYCODE_TV_INPUT;
     }
 
     @Override
@@ -41,7 +47,9 @@ public class KioskKeyFilterService extends AccessibilityService {
 
         String packageName = event.getPackageName().toString();
         if (APP_PACKAGE.equals(packageName)) {
-            maintenanceSessionActive = false;
+            return;
+        }
+        if (isNavigationUnlocked()) {
             return;
         }
         if (VENDOR_VIDEO_PACKAGE.equals(packageName)) {
@@ -55,35 +63,25 @@ public class KioskKeyFilterService extends AccessibilityService {
             startActivity(appIntent);
             return;
         }
-        if (!SETTINGS_PACKAGE.equals(packageName) || maintenanceSessionActive) {
-            return;
-        }
+        returnToKiosk();
+    }
 
-        long grantUntil = getSharedPreferences("kiosk_admin", MODE_PRIVATE)
-            .getLong("maintenance_grant_until", 0L);
-        getSharedPreferences("kiosk_admin", MODE_PRIVATE)
-            .edit()
-            .remove("maintenance_grant_until")
-            .apply();
+    private boolean isNavigationUnlocked() {
+        return getSharedPreferences("kiosk_admin", MODE_PRIVATE)
+            .getBoolean("navigation_unlocked", false);
+    }
 
-        if (System.currentTimeMillis() <= grantUntil) {
-            maintenanceSessionActive = true;
-            return;
-        }
-
-        performGlobalAction(GLOBAL_ACTION_HOME);
-        Intent adminIntent = new Intent(this, MainActivity.class);
-        adminIntent.putExtra("open_admin", true);
-        adminIntent.addFlags(
+    private void returnToKiosk() {
+        Intent appIntent = new Intent(this, MainActivity.class);
+        appIntent.addFlags(
             Intent.FLAG_ACTIVITY_NEW_TASK
                 | Intent.FLAG_ACTIVITY_CLEAR_TOP
                 | Intent.FLAG_ACTIVITY_SINGLE_TOP
         );
-        startActivity(adminIntent);
+        startActivity(appIntent);
     }
 
     @Override
     public void onInterrupt() {
-        maintenanceSessionActive = false;
     }
 }
