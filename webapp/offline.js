@@ -477,6 +477,9 @@
   }
 
   function render() {
+    if (window.KioskBridge && typeof window.KioskBridge.setView === "function") {
+      window.KioskBridge.setView(view);
+    }
     if (view === "home") renderHome();
     else if (view === "library") renderLibrary();
     else if (view === "calibration") renderCalibration();
